@@ -43,13 +43,79 @@ dotnet add package JadeDSL --version x.y.z
 
 ## 🔧 Usage
 
+Configure your DSL options and apply filters in a few simple steps:
+
+1. Define allowed fields  
+   Specify which properties can be queried to prevent unauthorized access.
+
+   ```csharp
+   var options = new JadeDSLOptions
+   {
+       AllowedFields = new[]
+       {
+           "name",
+           "lastname",
+           "age",
+           "city",
+           "price",
+           "address.street",
+           "documents.name",
+           "documents.types.name"
+       }
+   };
+   ```
+
+2. Create a DSL instance  
+   Pass your DSL string and the options object.
+
+   ```csharp
+   var dsl = new JadeDSL("(name:\"Alice\"&age>=30)", options);
+   ```
+
+3. Apply the filter to an EF Core query  
+   Use the `WhereDsl` extension just like `Where`, with optional `Include` for navigation properties.
+
+   ```csharp
+   var results = dbContext.Users
+       .WhereDsl(dsl)
+       .ToList();
+   ```
+
+### Examples
+
+— Filtering with a related collection  
+
 ```csharp
-var dsl = new JadeDSL("(name:\"Alice\"&age>=30)");
+var dsl = new JadeDSL("(name:\"Alice\"&documents.name:\"MOU\")", options);
 
-var predicate = dsl.Predicate<Person>();
-
-var results = people.Where(predicate);
+var results = dbContext.Users
+    .Include(u => u.Documents)
+        .ThenInclude(d => d.Types)
+    .WhereDsl(dsl)
+    .ToList();
 ```
+
+— Filtering nested properties in a child collection  
+```csharp
+var dsl = new JadeDSL("(name:\"Alice\"&documents.name:\"MOU\"&documents.types.name:%Img)", options);
+
+var results = dbContext.Users
+    .Include(u => u.Documents)
+        .ThenInclude(d => d.Types)
+    .WhereDsl(dsl)
+    .ToList();
+```
+
+— Combining `WhereDsl` with other predicates  
+```csharp
+var dsl = new JadeDSL("(age>=18)", options);
+
+var results = dbContext.Address
+    .Where(a => a.UserId == 1)
+    .WhereDsl(dsl)
+    .ToList();
+```
+
 
 ---
 
