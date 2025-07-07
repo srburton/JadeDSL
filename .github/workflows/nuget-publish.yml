@@ -17,14 +17,18 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
+      - name: 🧪 Extract release version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
       - name: 📦 Restore dependencies
         run: dotnet restore JadeDSL.sln
 
       - name: 🧱 Build project
         run: dotnet build JadeDSL.sln --configuration Release --no-restore
 
-      - name: 📦 Pack NuGet package (using release tag version)
-        run: dotnet pack src/JadeDSL/JadeDSL.csproj --configuration Release --no-build -o ./artifacts /p:PackageVersion=${{ github.ref_name }}
+      - name: 📦 Pack NuGet package
+        run: dotnet pack src/JadeDSL/JadeDSL.csproj --configuration Release --no-build -o ./artifacts /p:PackageVersion=${{ env.VERSION }}
 
       - name: 🚀 Publish to NuGet
         run: dotnet nuget push ./artifacts/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }}
