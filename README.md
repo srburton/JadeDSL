@@ -1,6 +1,3 @@
-O link “sandbox” não funciona fora deste ambiente. Para usar o README em inglês, copie todo o conteúdo abaixo e salve num arquivo chamado **README_EN.md** na raiz do seu projeto.
-
-```markdown
 # JadeDSL
 
 [![NuGet](https://img.shields.io/nuget/v/JadeDSL.svg)](https://www.nuget.org/packages/JadeDSL)
@@ -113,13 +110,8 @@ Pull requests are welcome! For major changes, please open an issue first to disc
 ## 📘 Maintainers
 
 - [@yourgithub](https://github.com/yourgithub)
-```
 
-Depois de colar, basta commitar:
-
-```bash
-git add README_EN.md
-git commit -m "Add English README"
+sh README"
 git push
 ```
 
