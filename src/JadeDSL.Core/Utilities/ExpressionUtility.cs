@@ -9,12 +9,12 @@ namespace JadeDSL.Core.Extensions
         public static Expression Between(Expression left, Expression right)
         {
             if (right is not ConstantExpression constExpr || constExpr.Value is not string s)
-                throw new NotSupportedException("BETWEEN requires a constant range string like '10/20'.");
+                throw new NotSupportedException("BETWEEN requires a constant range string like '10..20'.");
 
-            var parts = s.Split('/');
+            var parts = s.Split("..");
 
             if (parts.Length != 2)
-                throw new ArgumentException("BETWEEN value must be in 'min/max' format.");
+                throw new ArgumentException("BETWEEN value must be in 'min..max' format.");
 
             var (minRaw, maxRaw) = (parts[0], parts[1]);
 

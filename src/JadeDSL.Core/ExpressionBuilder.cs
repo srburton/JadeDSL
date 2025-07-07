@@ -66,11 +66,19 @@ namespace JadeDSL.Core
             if (pathParts.Length == 1)
             {
                 var member = Expression.PropertyOrField(param, ConvertToPascalCase(expr.Field));
+
+                if (expr.Operator == Symbols.Between)
+                    return ExpressionUtility.Between(member, Expression.Constant(expr.Value));
+
+                if (expr.Operator == Symbols.Like)
+                    return ExpressionUtility.Like(member, Expression.Constant(expr.Value));
+
                 var constant = ExpressionUtility.ParseType(member.Type, expr.Value);
+
                 return BuildComparison(expr.Operator, member, constant);
             }
 
-            return BuildGroupedAny<T>(param, new[] { expr }, LogicalOperatorType.And);
+            return BuildGroupedAny<T>(param, [expr], LogicalOperatorType.And);
         }
 
         private static Expression BuildGroupedAny<T>(ParameterExpression param, IEnumerable<NodeExpression> group, LogicalOperatorType logical)
@@ -100,7 +108,7 @@ namespace JadeDSL.Core
             return Expression.Call(
                 typeof(Enumerable),
                 nameof(Enumerable.Any),
-                new[] { itemType },
+                [itemType],
                 collectionProp,
                 lambda);
         }
