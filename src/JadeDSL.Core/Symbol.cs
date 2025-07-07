@@ -12,6 +12,7 @@ namespace JadeDSL.Core
         public static readonly Symbol LessThanOrEqual = "<=";
         public static readonly Symbol Colon = ":";
         public static readonly Symbol Like = "%";
+        public static readonly Symbol LikeBoth = "%%";
         public static readonly Symbol Between = "~";
 
         public static readonly Symbol[] Others = [
@@ -40,6 +41,7 @@ namespace JadeDSL.Core
            LessThanOrEqual,
            Colon,
            Like,
+           LikeBoth,
            Between               
         ];
     }

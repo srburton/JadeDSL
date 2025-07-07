@@ -139,23 +139,27 @@ name:"John"
 price~100..500
 (city:"NYC"|city:"LA")
 (name:"Alice"&lastname:"Smith")
+Name%%"Prod"        // like contains both sides (%%)
+Name%"Prod"         // like starts with (%)
 ```
 
 ---
 
 ## ✅ Supported Operators
 
-| Symbol | Description               |
-|--------|---------------------------|
-| `=`    | Equal                     |
-| `!=`   | Not Equal                 |
-| `>`    | Greater Than              |
-| `>=`   | Greater Than or Equal     |
-| `<`    | Less Than                 |
-| `<=`   | Less Than or Equal        |
-| `:`    | Exact Text Match          |
-| `%`    | Like / Contains           |
-| `~`    | Between (range)           |
+| Symbol | Description              |
+| ------ | ------------------------ |
+| `=`    | Equal                    |
+| `!=`   | Not Equal                |
+| `>`    | Greater Than             |
+| `>=`   | Greater Than or Equal    |
+| `<`    | Less Than                |
+| `<=`   | Less Than or Equal       |
+| `:`    | Exact Text Match         |
+| `%`    | Like / StartsWith (left) |
+| `%%`   | Like / Contains (both)   |
+| `~`    | Between (range)          |
+
 
 ---
 

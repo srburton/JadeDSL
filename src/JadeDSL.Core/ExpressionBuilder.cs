@@ -43,9 +43,25 @@ namespace JadeDSL.Core
             var expressions = new List<Expression>();
 
             // Group expressions by their root path (e.g. "attributes")
-            var grouped = exprNodes.GroupBy(e => e.Field.Split('.')[0]);
-            foreach (var g in grouped)
-                expressions.Add(BuildGroupedAny<T>(param, g, group.Operator));
+            foreach (var expr in exprNodes)
+            {
+                var path = expr.Field.Split('.');
+                var rootProp = ConvertToPascalCase(path[0]);
+                var member = Expression.Property(param, rootProp);
+
+                // Se for coleção (navegação), use BuildGroupedAny
+                var isCollection = member.Type.GetInterfaces()
+                    .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+
+                if (path.Length > 1 && isCollection)
+                {
+                    expressions.Add(BuildGroupedAny<T>(param, [expr], group.Operator));
+                }
+                else
+                {
+                    expressions.Add(BuildConditionExpression<T>(param, expr));
+                }
+            }
 
             // Recurse into nested group nodes
             foreach (var node in otherNodes)
@@ -70,8 +86,8 @@ namespace JadeDSL.Core
                 if (expr.Operator == Symbols.Between)
                     return ExpressionUtility.Between(member, Expression.Constant(expr.Value));
 
-                if (expr.Operator == Symbols.Like)
-                    return ExpressionUtility.Like(member, Expression.Constant(expr.Value));
+                if (expr.Operator == Symbols.Like || expr.Operator == Symbols.LikeBoth)
+                    return ExpressionUtility.Like(member, Expression.Constant(expr.Value), expr.Operator);
 
                 var constant = ExpressionUtility.ParseType(member.Type, expr.Value);
 
@@ -83,11 +99,22 @@ namespace JadeDSL.Core
 
         private static Expression BuildGroupedAny<T>(ParameterExpression param, IEnumerable<NodeExpression> group, LogicalOperatorType logical)
         {
+            if (!group.Any())
+                throw new InvalidOperationException("No expressions to group.");
+
             var pathParts = group.First().Field.Split('.');
             var collectionName = ConvertToPascalCase(pathParts[0]);
             var collectionProp = Expression.Property(param, collectionName);
+            var collectionType = collectionProp.Type;
 
-            var itemType = collectionProp.Type.GetGenericArguments().First();
+            var enumerableInterface = collectionType
+                .GetInterfaces()
+                .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+
+            if (enumerableInterface == null)
+                throw new InvalidOperationException($"Property '{collectionName}' must be a generic collection (IEnumerable<T>).");
+
+            var itemType = enumerableInterface.GetGenericArguments().First();
             var itemParam = Expression.Parameter(itemType, "x");
 
             var inner = group.Select(expr =>
@@ -105,13 +132,18 @@ namespace JadeDSL.Core
 
             var lambda = Expression.Lambda(combined, itemParam);
 
-            return Expression.Call(
-                typeof(Enumerable),
-                nameof(Enumerable.Any),
-                [itemType],
-                collectionProp,
-                lambda);
+            return Expression.AndAlso(
+                Expression.NotEqual(collectionProp, Expression.Constant(null, collectionProp.Type)),
+                Expression.Call(
+                    typeof(Enumerable),
+                    nameof(Enumerable.Any),
+                    [itemType],
+                    collectionProp,
+                    lambda
+                )
+            );
         }
+
 
         private static Expression BuildConditionExpressionForPath(Expression param, string[] path, Symbol op, string value, int index)
         {
@@ -119,6 +151,12 @@ namespace JadeDSL.Core
 
             if (index == path.Length - 1)
             {
+                if (op == Symbols.Between)
+                    return ExpressionUtility.Between(member, Expression.Constant(value));
+
+                if (op == Symbols.Like || op == Symbols.LikeBoth)
+                    return ExpressionUtility.Like(member, Expression.Constant(value), op);
+
                 var constant = ExpressionUtility.ParseType(member.Type, value);
                 return BuildComparison(op, member, constant);
             }
@@ -144,7 +182,7 @@ namespace JadeDSL.Core
                 var o when o == Symbols.GreaterThanOrEqual => Expression.GreaterThanOrEqual(left, right),
                 var o when o == Symbols.LessThan => Expression.LessThan(left, right),
                 var o when o == Symbols.LessThanOrEqual => Expression.LessThanOrEqual(left, right),
-                var o when o == Symbols.Like => ExpressionUtility.Like(left, right),
+                var o when o == Symbols.Like => ExpressionUtility.Like(left, right, op),
                 var o when o == Symbols.Between => ExpressionUtility.Between(left, right),
                 _ => throw new NotSupportedException($"Operator {op} not supported.")
             };

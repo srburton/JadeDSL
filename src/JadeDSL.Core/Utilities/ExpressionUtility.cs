@@ -27,42 +27,22 @@ namespace JadeDSL.Core.Extensions
             return Expression.AndAlso(greaterThanOrEqual, lessThanOrEqual);
         }
 
-        public static Expression Like(Expression left, Expression right)
+        public static Expression Like(Expression member, Expression constant, Symbol op)
         {
-            if (left.Type != typeof(string))
-                throw new NotSupportedException("LIKE operator only supports string expressions.");
+            var method = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) })!;
+            var methodStartsWith = typeof(string).GetMethod(nameof(string.StartsWith), new[] { typeof(string) })!;
+            var methodEndsWith = typeof(string).GetMethod(nameof(string.EndsWith), new[] { typeof(string) })!;
 
-            if (right is not ConstantExpression constExpr)
-                throw new NotSupportedException("LIKE operator requires a constant string pattern.");
+            var value = ((ConstantExpression)constant).Value?.ToString() ?? "";
 
-            var pattern = constExpr.Value?.ToString() ?? "";
-
-            MethodInfo method;
-            string value;
-
-            if (pattern.StartsWith("%") && pattern.EndsWith("%"))
+            return op switch
             {
-                method = typeof(string).GetMethod(nameof(string.Contains), [typeof(string)])!;
-                value = pattern.Trim('%');
-            }
-            else if (pattern.StartsWith("%"))
-            {
-                method = typeof(string).GetMethod(nameof(string.EndsWith), [typeof(string)])!;
-                value = pattern.TrimStart('%');
-            }
-            else if (pattern.EndsWith("%"))
-            {
-                method = typeof(string).GetMethod(nameof(string.StartsWith), [typeof(string)])!;
-                value = pattern.TrimEnd('%');
-            }
-            else
-            {
-                method = typeof(string).GetMethod(nameof(string.Equals), [typeof(string)])!;
-                value = pattern;
-            }
-
-            return Expression.Call(left, method, Expression.Constant(value));
+                var o when o == Symbols.Like => Expression.Call(member, methodEndsWith, constant),  // ends with
+                var o when o == Symbols.LikeBoth => Expression.Call(member, method, constant),      // contains (both sides)
+                _ => throw new NotSupportedException($"Operator {op} not supported.")
+            };
         }
+
 
         public static Expression ParseType(Type type, string raw)
         {

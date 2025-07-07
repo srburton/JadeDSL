@@ -30,6 +30,7 @@ namespace JadeDSL.Core
             Symbols.LessThanOrEqual,
             Symbols.Colon,
             Symbols.Like,
+            Symbols.LikeBoth,
             Symbols.Between
         };
 
