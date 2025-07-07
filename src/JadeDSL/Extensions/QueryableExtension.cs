@@ -32,7 +32,7 @@ namespace JadeDSL.Extensions
         /// <summary>
         /// Applies a JadeDSL predicate to a queryable collection.
         /// </summary>
-        public static IQueryable<T> WhereDsl<T>(this IQueryable<T> source, JadeDSL dsl)
+        public static IQueryable<T> WhereDsl<T>(this IQueryable<T> source, FilterBuilder dsl)
         {
             if (dsl.Node is null)
                 return source;
@@ -44,7 +44,7 @@ namespace JadeDSL.Extensions
         /// <summary>
         /// Applies a JadeDSL predicate to an in-memory enumerable (compiled).
         /// </summary>
-        public static IEnumerable<T> WhereDsl<T>(this IEnumerable<T> source, JadeDSL dsl)
+        public static IEnumerable<T> WhereDsl<T>(this IEnumerable<T> source, FilterBuilder dsl)
         {
             if (dsl.Node is null)
                 return source;

@@ -3,13 +3,13 @@ using JadeDSL.Interfaces;
 
 namespace JadeDSL
 {
-    public class JadeDSL: IFilter
+    public class FilterBuilder : IFilter
     {
         public Node Node { get; }
 
         private readonly Options options = new();
         
-        public JadeDSL(string expression, Action<Options>? action = null)
+        public FilterBuilder(string expression, Action<Options>? action = null)
         {
             action?.Invoke(options);
 

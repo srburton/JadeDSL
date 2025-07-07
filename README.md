@@ -56,7 +56,7 @@ Configure your DSL options and apply filters in a few simple steps:
    Specify which properties can be queried to prevent unauthorized access.
 
    ```csharp
-   var options = new JadeDSLOptions
+   var options = new JadeDSL.Core.Options
    {
        AllowedFields = new[]
        {
@@ -76,7 +76,7 @@ Configure your DSL options and apply filters in a few simple steps:
    Pass your DSL string and the options object.
 
    ```csharp
-   var dsl = new JadeDSL("(name:\"Alice\"&age>=30)", options);
+   var dsl = new FilterBuilder("(name:\"Alice\"&age>=30)", options);
    ```
 
 3. Apply the filter to an EF Core query  
@@ -93,7 +93,7 @@ Configure your DSL options and apply filters in a few simple steps:
 — Filtering with a related collection  
 
 ```csharp
-var dsl = new JadeDSL("(name:\"Alice\"&documents.name:\"MOU\")", options);
+var dsl = new FilterBuilder("(name:\"Alice\"&documents.name:\"MOU\")", options);
 
 var results = dbContext.Users
     .Include(u => u.Documents)
@@ -104,7 +104,7 @@ var results = dbContext.Users
 
 — Filtering nested properties in a child collection  
 ```csharp
-var dsl = new JadeDSL("(name:\"Alice\"&documents.name:\"MOU\"&documents.types.name:%Img)", options);
+var dsl = new FilterBuilder("(name:\"Alice\"&documents.name:\"MOU\"&documents.types.name:%Img)", options);
 
 var results = dbContext.Users
     .Include(u => u.Documents)
@@ -115,7 +115,7 @@ var results = dbContext.Users
 
 — Combining `WhereDsl` with other predicates  
 ```csharp
-var dsl = new JadeDSL("(age>=18)", options);
+var dsl = new FilterBuilder("(age>=18)", options);
 
 var results = dbContext.Address
     .Where(a => a.UserId == 1)
