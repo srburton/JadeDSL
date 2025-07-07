@@ -1,0 +1,30 @@
+name: Publish NuGet Package
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🛠️ Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: 📦 Restore dependencies
+        run: dotnet restore JadeDSL.sln
+
+      - name: 🧱 Build project
+        run: dotnet build JadeDSL.sln --configuration Release --no-restore
+
+      - name: 📦 Pack NuGet package (using release tag version)
+        run: dotnet pack src/JadeDSL/JadeDSL.csproj --configuration Release --no-build -o ./artifacts /p:PackageVersion=${{ github.ref_name }}
+
+      - name: 🚀 Publish to NuGet
+        run: dotnet nuget push ./artifacts/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }}
