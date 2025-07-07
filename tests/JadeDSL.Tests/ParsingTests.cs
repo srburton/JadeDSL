@@ -1,6 +1,5 @@
 ﻿using JadeDSL.Core;
 using JadeDSL.Core.Types;
-using Xunit;
 
 namespace JadeDSL.Tests
 {
@@ -10,6 +9,21 @@ namespace JadeDSL.Tests
         {
             op.AllowedFields = ["name", "lastname", "age", "city", "price", "address.street"];
         };
+
+        [Fact]
+        public void Should_Parse_Expressions_Empty()
+        {
+            var dsl = new FilterBuilder("", options);
+            var node = dsl.Node;
+
+            Assert.Null(node);            
+        }
+
+        [Fact]
+        public void Should_Parse_Expressions_Empty_When_Required()
+        {
+            Assert.Throws<InvalidOperationException>(() => new FilterBuilder("", op => op.Required = true));            
+        }
 
         [Fact]
         public void Should_Parse_And_Group_Expressions_With_And_Operator()

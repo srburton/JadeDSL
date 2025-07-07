@@ -3,6 +3,11 @@ namespace JadeDSL.Core
 {
     public class Options
     {
+        /// <summary>
+        /// Use true when the filter is required
+        /// </summary>
+        public bool Required { get; set; } = false;
+
         public int MaxExpressionLength { get; set; } = 10;
 
         public int MaxExpressionDepth { get; set; } = 5;

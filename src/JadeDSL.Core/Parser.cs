@@ -1,7 +1,4 @@
 ﻿using JadeDSL.Core.Types;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace JadeDSL.Core
 {
@@ -10,9 +7,12 @@ namespace JadeDSL.Core
     /// </summary>
     public class Parser
     {
-        private readonly Options options;
         private int position;
+        private readonly Options options;        
+        
         private List<Token> tokens = [];
+
+        public static Node? Empty => null;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Parser"/> class with the provided options.
@@ -21,7 +21,7 @@ namespace JadeDSL.Core
         public Parser(Options options)
         {
             this.options = options;
-        }
+        }     
 
         /// <summary>
         /// Parses a list of tokens into a filter expression tree (AST).

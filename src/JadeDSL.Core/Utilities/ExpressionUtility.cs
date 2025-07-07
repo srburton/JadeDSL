@@ -1,4 +1,5 @@
-﻿using System.Linq.Expressions;
+﻿using JadeDSL.Core.Helpers;
+using System.Linq.Expressions;
 using System.Reflection;
 
 namespace JadeDSL.Core.Extensions
@@ -72,7 +73,21 @@ namespace JadeDSL.Core.Extensions
             if (type == typeof(DateTime) || type == typeof(DateTime?)) return Expression.Constant(DateTime.Parse(raw));
             if (type == typeof(Guid) || type == typeof(Guid?)) return Expression.Constant(Guid.Parse(raw));
 
+            if (type.IsEnum || Nullable.GetUnderlyingType(type)?.IsEnum == true)
+                return CreateEnumConstant(type, raw);
+
             throw new InvalidOperationException($"Unsupported constant type: {type}");
+        }
+
+        public static Expression CreateEnumConstant(Type targetType, string raw)
+        {
+            var enumType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+
+            if (!enumType.IsEnum)
+                throw new ArgumentException("Target type is not an enum or nullable enum.", nameof(targetType));
+
+            var value = EnumHelper.ParseFromNameOrDescription(enumType, raw);
+            return Expression.Constant(value, targetType);
         }
     }
 }

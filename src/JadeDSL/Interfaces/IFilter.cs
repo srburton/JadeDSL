@@ -4,6 +4,6 @@ namespace JadeDSL.Interfaces
 {
     public interface IFilter
     {
-        public Node Node { get; }
+        public Node? Node { get; }
     }
 }
