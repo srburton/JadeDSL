@@ -9,7 +9,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Last Commit](https://img.shields.io/github/last-commit/srburton/JadeDSL)
 
-
 **JadeDSL** is a lightweight, expressive Domain Specific Language (DSL) parser and evaluator for building complex LINQ-compatible filters in C#.
 
 ---
@@ -17,17 +16,12 @@
 ## ✨ Features
 
 - Parse DSL filters like `(name:"John"&age>30)`
-
 - Supports logical operators: AND (`&`) and OR (`|`)
-
 - Supports comparison operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `:`, `%`, `~`
-
 - Nested expressions and grouping
-
+- Alias resolution (e.g. `@aliasName` → `name`)
 - Expression validation and sanitization
-
 - Expression-to-LINQ (`Expression<Func<T, bool>>`) builder
-
 - Safe from OWASP Top 10 injection attacks
 
 ---
@@ -50,50 +44,69 @@ dotnet add package JadeDSL --version x.y.z
 
 ## 🔧 Usage
 
-Configure your DSL options and apply filters in a few simple steps:
-
-1. Define allowed fields  
-   Specify which properties can be queried to prevent unauthorized access.
-
-   ```csharp
-   var options = new JadeDSL.Core.Options
-   {
-       AllowedFields = new[]
-       {
-           "name",
-           "lastname",
-           "age",
-           "city",
-           "price",
-           "address.street",
-           "documents.name",
-           "documents.types.name"
-       }
-   };
-   ```
-
-2. Create a DSL instance  
-   Pass your DSL string and the options object.
-
-   ```csharp
-   var dsl = new FilterBuilder("(name:\"Alice\"&age>=30)", options);
-   ```
-
-3. Apply the filter to an EF Core query  
-   Use the `WhereDsl` extension just like `Where`, with optional `Include` for navigation properties.
-
-   ```csharp
-   var results = dbContext.Users
-       .WhereDsl(dsl)
-       .ToList();
-   ```
-
-### Examples
-
-— Filtering with a related collection  
+### 1. Configure your DSL options
 
 ```csharp
-var dsl = new FilterBuilder("(name:\"Alice\"&documents.name:\"MOU\")", options);
+var options = new Options();
+options.AddAllowedFields("name", "lastname", "age", "city", "price", "address.street", "documents.name", "documents.types.name");
+options.AddAlias("@aliasName", "name");
+options.AddAlias("@aliasAge", "age");
+```
+
+---
+
+### 2. Create a DSL filter using the builder pattern
+
+```csharp
+var dsl = new FilterBuilder()
+    .WithExpression("(name:\"Alice\"&@aliasAge>=30)")
+    .ConfigureOptions(opts =>
+    {
+        opts.AddAllowedFields("name", "age");
+        opts.AddAlias("@aliasAge", "age");
+    })
+    .Build();
+```
+
+---
+
+### 3. Apply the filter to EF Core
+
+```csharp
+var results = dbContext.Users
+    .WhereDsl(dsl)
+    .ToList();
+```
+
+---
+
+## 💡 Real-world Examples
+
+### — Filtering with a related collection
+
+```csharp
+var dsl = new FilterBuilder()
+    .WithExpression("(name:\"Alice\"&documents.name:\"MOU\")")
+    .ConfigureOptions(options => {
+        options.AddAllowedFields("name", "documents.name");
+    })
+    .Build();
+
+var results = dbContext.Users
+    .Include(u => u.Documents)
+    .WhereDsl(dsl)
+    .ToList();
+```
+
+### — Filtering nested properties in a child collection
+
+```csharp
+var dsl = new FilterBuilder()
+    .WithExpression("(name:\"Alice\"&documents.types.name:%Img)")
+    .ConfigureOptions(options => {
+        options.AddAllowedFields("name", "documents.types.name");
+    })
+    .Build();
 
 var results = dbContext.Users
     .Include(u => u.Documents)
@@ -102,20 +115,13 @@ var results = dbContext.Users
     .ToList();
 ```
 
-— Filtering nested properties in a child collection  
-```csharp
-var dsl = new FilterBuilder("(name:\"Alice\"&documents.name:\"MOU\"&documents.types.name:%Img)", options);
+### — Combining with manual LINQ filters
 
-var results = dbContext.Users
-    .Include(u => u.Documents)
-        .ThenInclude(d => d.Types)
-    .WhereDsl(dsl)
-    .ToList();
-```
-
-— Combining `WhereDsl` with other predicates  
 ```csharp
-var dsl = new FilterBuilder("(age>=18)", options);
+var dsl = new FilterBuilder()
+    .WithExpression("(age>=18)")
+    .ConfigureOptions(options => options.AddAllowedFields("age"))
+    .Build();
 
 var results = dbContext.Address
     .Where(a => a.UserId == 1)
@@ -123,14 +129,13 @@ var results = dbContext.Address
     .ToList();
 ```
 
-
 ---
 
 ## 📊 Example Expressions
 
 ```dsl
 name:"John"
-age>=30
+@aliasAge>=30
 price~100..500
 (city:"NYC"|city:"LA")
 (name:"Alice"&lastname:"Smith")
@@ -141,7 +146,7 @@ price~100..500
 ## ✅ Supported Operators
 
 | Symbol | Description               |
-|-------:|---------------------------|
+|--------|---------------------------|
 | `=`    | Equal                     |
 | `!=`   | Not Equal                 |
 | `>`    | Greater Than              |
@@ -159,12 +164,9 @@ price~100..500
 JadeDSL is designed with OWASP Top 10 in mind and includes:
 
 - Token sanitization
-
-- Structural parser validation
-
-- Maximum node limits
-
-- Operator white-listing
+- Structural validation
+- Node limit enforcement
+- Operator allow-listing
 
 ---
 
@@ -180,6 +182,6 @@ Pull requests are welcome! For major changes, please open an issue first to disc
 
 ---
 
-## 📘 Maintainers
+## 📘 Maintainer
 
 - [@srburton](https://github.com/srburton)

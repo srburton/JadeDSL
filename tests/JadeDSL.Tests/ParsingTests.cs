@@ -5,30 +5,46 @@ namespace JadeDSL.Tests
 {
     public class ParsingTests
     {
-        private readonly Action<Options> options = op =>
+        private readonly Action<Options> optionsSetup = op =>
         {
-            op.AllowedFields = ["name", "lastname", "age", "city", "price", "address.street"];
+            op.AddAllowedFields("name", "lastname", "age", "city", "price", "address.street");
+            op.AddAlias("@aliasName", "name");
+            op.AddAlias("@aliasAge", "age");
         };
+
+        private FilterBuilder CreateBuilder(string expr)
+        {
+            return new FilterBuilder()
+                .WithExpression(expr)
+                .ConfigureOptions(optionsSetup)
+                .Build();
+        }
 
         [Fact]
         public void Should_Parse_Expressions_Empty()
         {
-            var dsl = new FilterBuilder("", options);
-            var node = dsl.Node;
+            var dsl = new FilterBuilder()
+                .WithExpression("")
+                .ConfigureOptions(op => { op.AddAllowedFields(); }) // no required
+                .Build();
 
-            Assert.Null(node);            
+            Assert.Null(dsl.Node);
         }
 
         [Fact]
-        public void Should_Parse_Expressions_Empty_When_Required()
+        public void Should_Throw_When_Expression_Empty_And_Required()
         {
-            Assert.Throws<InvalidOperationException>(() => new FilterBuilder("", op => op.Required = true));            
+            var builder = new FilterBuilder()
+                .WithExpression("")
+                .ConfigureOptions(op => op.Required = true);
+
+            Assert.Throws<ArgumentException>(() => builder.Build());
         }
 
         [Fact]
         public void Should_Parse_And_Group_Expressions_With_And_Operator()
         {
-            var dsl = new FilterBuilder("(name:\"Renato\"&lastname:\"Burton\")", options);
+            var dsl = CreateBuilder("(name:\"Renato\"&lastname:\"Burton\")");
             var node = dsl.Node;
 
             Assert.NotNull(node);
@@ -40,7 +56,7 @@ namespace JadeDSL.Tests
         [Fact]
         public void Should_Parse_Or_Operator_Between_Two_Expressions()
         {
-            var dsl = new FilterBuilder("(city:\"NYC\"|city:\"LA\")", options);
+            var dsl = CreateBuilder("(city:\"NYC\"|city:\"LA\")");
             var node = dsl.Node;
 
             var group = Assert.IsType<NodeGroup>(node);
@@ -51,7 +67,7 @@ namespace JadeDSL.Tests
         [Fact]
         public void Should_Parse_Nested_And_Or_Groups()
         {
-            var dsl = new FilterBuilder("((name:\"Renato\"&lastname:\"Burton\")|age:30)", options);
+            var dsl = CreateBuilder("((name:\"Renato\"&lastname:\"Burton\")|age:30)");
             var outerGroup = Assert.IsType<NodeGroup>(dsl.Node);
 
             Assert.Equal(LogicalOperatorType.Or, outerGroup.Operator);
@@ -64,7 +80,7 @@ namespace JadeDSL.Tests
         [Fact]
         public void Should_Parse_Single_Expression()
         {
-            var dsl = new FilterBuilder("age:25", options);
+            var dsl = CreateBuilder("age:25");
             var expr = Assert.IsType<NodeExpression>(dsl.Node);
 
             Assert.Equal("age", expr.Field);
@@ -86,7 +102,20 @@ namespace JadeDSL.Tests
         [InlineData("name:\"John Doe\"", "name", ":", "John Doe")]
         public void Should_Parse_Single_Expression_With_Supported_Operators(string input, string expectedField, string expectedOp, string expectedValue)
         {
-            var dsl = new FilterBuilder(input, options);
+            var dsl = CreateBuilder(input);
+            var node = Assert.IsType<NodeExpression>(dsl.Node);
+
+            Assert.Equal(expectedField, node.Field);
+            Assert.Equal(expectedOp, node.Operator.ToString());
+            Assert.Equal(expectedValue, node.Value);
+        }
+
+        [Theory]
+        [InlineData("@aliasName:\"Renato\"", "name", ":", "Renato")]
+        [InlineData("@aliasAge>30", "age", ">", "30")]
+        public void Should_Parse_Single_Expression_With_Alias(string input, string expectedField, string expectedOp, string expectedValue)
+        {
+            var dsl = CreateBuilder(input);
             var node = Assert.IsType<NodeExpression>(dsl.Node);
 
             Assert.Equal(expectedField, node.Field);
@@ -99,7 +128,7 @@ namespace JadeDSL.Tests
         [InlineData("(age=30|name:\"Renato\")", LogicalOperatorType.Or)]
         public void Should_Parse_Grouped_Expressions_With_Logical_Operator(string input, LogicalOperatorType expectedOperator)
         {
-            var dsl = new FilterBuilder(input, options);
+            var dsl = CreateBuilder(input);
             var group = Assert.IsType<NodeGroup>(dsl.Node);
 
             Assert.Equal(expectedOperator, group.Operator);
@@ -111,7 +140,7 @@ namespace JadeDSL.Tests
         public void Should_Parse_Nested_Group_With_And_And_Or()
         {
             var input = "((age>30&name:\"Renato\")|price~10..100)";
-            var dsl = new FilterBuilder(input, options);
+            var dsl = CreateBuilder(input);
             var outer = Assert.IsType<NodeGroup>(dsl.Node);
 
             Assert.Equal(LogicalOperatorType.Or, outer.Operator);
@@ -132,7 +161,7 @@ namespace JadeDSL.Tests
         [InlineData("(age=30|name:")]
         public void Should_Throw_InvalidOperationException_On_Syntax_Errors(string input)
         {
-            Assert.Throws<InvalidOperationException>(() => new FilterBuilder(input, options));
+            Assert.Throws<InvalidOperationException>(() => CreateBuilder(input));
         }
 
         [Theory]
@@ -142,7 +171,7 @@ namespace JadeDSL.Tests
         [InlineData("name:\"Unclosed quote")]
         public void Should_Throw_On_Unbalanced_Parentheses_Or_Quotes(string input)
         {
-            Assert.ThrowsAny<Exception>(() => new FilterBuilder(input, options));
+            Assert.ThrowsAny<Exception>(() => CreateBuilder(input));
         }
     }
 }
