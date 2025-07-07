@@ -2,6 +2,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/JadeDSL.svg)](https://www.nuget.org/packages/JadeDSL)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Tests](https://github.com/srburton/JadeDSL/actions/workflows/tests.yml/badge.svg)](https://github.com/srburton/JadeDSL/actions/workflows/tests.yml)
 
 **JadeDSL** is a lightweight, expressive Domain Specific Language (DSL) parser and evaluator for building complex LINQ-compatible filters in C#.
 
