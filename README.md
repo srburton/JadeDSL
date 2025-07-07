@@ -1,208 +1,126 @@
-# \# JadeDSL
+O link “sandbox” não funciona fora deste ambiente. Para usar o README em inglês, copie todo o conteúdo abaixo e salve num arquivo chamado **README_EN.md** na raiz do seu projeto.
 
-# 
+```markdown
+# JadeDSL
 
-# \[!\[NuGet](https://img.shields.io/nuget/v/JadeDSL.svg)](https://www.nuget.org/packages/JadeDSL)
+[![NuGet](https://img.shields.io/nuget/v/JadeDSL.svg)](https://www.nuget.org/packages/JadeDSL)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-# \[!\[License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+**JadeDSL** is a lightweight, expressive Domain Specific Language (DSL) parser and evaluator for building complex LINQ-compatible filters in C#.
 
-# 
+---
 
-# \*\*JadeDSL\*\* is a lightweight, expressive Domain Specific Language (DSL) parser and evaluator for building complex LINQ-compatible filters in C#.
+## ✨ Features
 
-# 
+- Parse DSL filters like `(name:"John"&age>30)`
 
-# ---
+- Supports logical operators: AND (`&`) and OR (`|`)
 
-# 
+- Supports comparison operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `:`, `%`, `~`
 
-# \## ✨ Features
+- Nested expressions and grouping
 
-# 
+- Expression validation and sanitization
 
-# \* Parse DSL filters like `(name:"John"\&age>30)`
+- Expression-to-LINQ (`Expression<Func<T, bool>>`) builder
 
-# \* Supports logical operators: `AND (\&)` and `OR (|)`
+- Safe from OWASP Top 10 injection attacks
 
-# \* Supports comparison operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `:`, `%`, `~`
+---
 
-# \* Nested expressions and groups
+## 📦 Installation
 
-# \* Expression validation and sanitization
+Install via NuGet:
 
-# \* Expression-to-LINQ (`Expression<Func<T, bool>>`) builder
+```bash
+dotnet add package JadeDSL
+```
 
-# \* Safe from OWASP Top 10 injection attacks
+Or specify a version:
 
-# 
+```bash
+dotnet add package JadeDSL --version x.y.z
+```
 
-# ---
+---
 
-# 
+## 🔧 Usage
 
-# \## 📦 Installation
+```csharp
+var dsl = new JadeDSL("(name:\"Alice\"&age>=30)");
 
-# 
+var predicate = dsl.Predicate<Person>();
 
-# Install via NuGet:
+var results = people.Where(predicate);
+```
 
-# 
+---
 
-# ```bash
+## 📊 Example Expressions
 
-# dotnet add package JadeDSL
+```dsl
+name:"John"
+age>=30
+price~100..500
+(city:"NYC"|city:"LA")
+(name:"Alice"&lastname:"Smith")
+```
 
-# ```
+---
 
-# 
+## ✅ Supported Operators
 
-# Or via the .NET CLI:
+| Symbol | Description               |
+|-------:|---------------------------|
+| `=`    | Equal                     |
+| `!=`   | Not Equal                 |
+| `>`    | Greater Than              |
+| `>=`   | Greater Than or Equal     |
+| `<`    | Less Than                 |
+| `<=`   | Less Than or Equal        |
+| `:`    | Exact Text Match          |
+| `%`    | Like / Contains           |
+| `~`    | Between (range)           |
 
-# 
+---
 
-# ```bash
+## ⚠️ Security
 
-# dotnet add package JadeDSL --version x.y.z
+JadeDSL is designed with OWASP Top 10 in mind and includes:
 
-# ```
+- Token sanitization
 
-# 
+- Structural parser validation
 
-# ---
+- Maximum node limits
 
-# 
+- Operator white-listing
 
-# \## 🔧 Usage
+---
 
-# 
+## 📟 License
 
-# ```csharp
+This project is licensed under the [MIT License](LICENSE).
 
-# var dsl = new JadeDSL("(name:\\"Alice\\"\&age>=30)");
+---
 
-# 
+## 🤝 Contributing
 
-# var predicate = dsl.Predicate<Person>();
+Pull requests are welcome! For major changes, please open an issue first to discuss what you’d like to change.
 
-# 
+---
 
-# var results = people.Where(predicate);
+## 📘 Maintainers
 
-# ```
+- [@yourgithub](https://github.com/yourgithub)
+```
 
-# 
+Depois de colar, basta commitar:
 
-# ---
+```bash
+git add README_EN.md
+git commit -m "Add English README"
+git push
+```
 
-# 
-
-# \## 📊 Example Expressions
-
-# 
-
-# ```dsl
-
-# name:"John"
-
-# age>=30
-
-# price~100..500
-
-# (city:"NYC"|city:"LA")
-
-# (name:"Alice"\&lastname:"Smith")
-
-# ```
-
-# 
-
-# ---
-
-# 
-
-# \## ✅ Supported Operators
-
-# 
-
-# | Symbol | Description      |
-
-# | ------ | ---------------- |
-
-# | `=`    | Equal            |
-
-# | `!=`   | Not Equal        |
-
-# | `>`    | Greater Than     |
-
-# | `>=`   | Greater or Equal |
-
-# | `<`    | Less Than        |
-
-# | `<=`   | Less or Equal    |
-
-# | `:`    | Text/Exact Match |
-
-# | `%`    | Like / Contains  |
-
-# | `~`    | Between (range)  |
-
-# 
-
-# ---
-
-# 
-
-# \## ⚠️ Security
-
-# 
-
-# JadeDSL is designed with OWASP Top 10 in mind and includes:
-
-# 
-
-# \* Token sanitization
-
-# \* Parser structural validation
-
-# \* Max node limits
-
-# \* Operator white-listing
-
-# 
-
-# ---
-
-# 
-
-# \## 📟 License
-
-# 
-
-# This project is licensed under the \[MIT License](LICENSE).
-
-# 
-
-# ---
-
-# 
-
-# \## 🤝 Contributing
-
-# 
-
-# Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
-
-# 
-
-# ---
-
-# 
-
-# \## 📘 Maintainers
-
-# 
-
-# \* \[@yourgithub](https://github.com/yourgithub)
-
-
-
+Se quiser ainda uma versão multilíngue combinando PT + EN num único README, me avise!
