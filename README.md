@@ -1,4 +1,6 @@
-# JadeDSL
+<p align="center">
+  <img src="assets/jadeDSL.png" alt="JadeDSL logo" width="300"/>
+</p>
 
 [![Build](https://github.com/srburton/JadeDSL/actions/workflows/nuget-publish.yml/badge.svg)](https://github.com/srburton/JadeDSL/actions)
 [![Tests](https://github.com/srburton/JadeDSL/actions/workflows/tests.yml/badge.svg)](https://github.com/srburton/JadeDSL/actions)
