@@ -1,8 +1,12 @@
 # JadeDSL
 
+[![Build](https://github.com/srburton/JadeDSL/actions/workflows/nuget-publish.yml/badge.svg)](https://github.com/srburton/JadeDSL/actions)
+[![Tests](https://github.com/srburton/JadeDSL/actions/workflows/tests.yml/badge.svg)](https://github.com/srburton/JadeDSL/actions)
 [![NuGet](https://img.shields.io/nuget/v/JadeDSL.svg)](https://www.nuget.org/packages/JadeDSL)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/JadeDSL.svg)](https://www.nuget.org/packages/JadeDSL)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://github.com/srburton/JadeDSL/actions/workflows/tests.yml/badge.svg)](https://github.com/srburton/JadeDSL/actions/workflows/tests.yml)
+![Last Commit](https://img.shields.io/github/last-commit/srburton/JadeDSL)
+
 
 **JadeDSL** is a lightweight, expressive Domain Specific Language (DSL) parser and evaluator for building complex LINQ-compatible filters in C#.
 
