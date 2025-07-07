@@ -109,10 +109,4 @@ Pull requests are welcome! For major changes, please open an issue first to disc
 
 ## 📘 Maintainers
 
-- [@yourgithub](https://github.com/yourgithub)
-
-sh README"
-git push
-```
-
-Se quiser ainda uma versão multilíngue combinando PT + EN num único README, me avise!
+- [@srburton](https://github.com/srburton)
