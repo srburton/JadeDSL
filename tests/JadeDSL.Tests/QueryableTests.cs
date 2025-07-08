@@ -3,6 +3,16 @@ using JadeDSL.Extensions;
 
 namespace JadeDSL.Tests
 {
+    public class AttributeValue
+    {
+        public int? ValueInt { get; set; }
+    }
+
+    public class ItemWithAttributes
+    {
+        public List<AttributeValue>? Attributes { get; set; }
+    }
+
     public class Person
     {
         public string? Name { get; set; }
@@ -24,26 +34,36 @@ namespace JadeDSL.Tests
 
     public class QueryableTests
     {
-        private readonly List<Product> _products = new()
-        {
+        private readonly List<ItemWithAttributes> _attributesItems =
+        [
+            new ItemWithAttributes { Attributes = [new() { ValueInt = 9 }] },
+            new ItemWithAttributes { Attributes = [new() { ValueInt = 10 }] },
+            new ItemWithAttributes { Attributes = [new() { ValueInt = 11 }] },
+            new ItemWithAttributes { Attributes = [new() { ValueInt = 12 }] },
+            new ItemWithAttributes { Attributes = [new() { ValueInt = null }] },
+            new ItemWithAttributes { Attributes = null }
+        ];
+
+        private readonly List<Product> _products =
+        [
             new Product { Name = "Product A", Price = 10.5m },
             new Product { Name = "Product B", Price = 25.0m },
             new Product { Name = "Product C", Price = 40.0m },
             new Product { Name = "Product D", Price = 50.0m },
-        };
+        ];
 
-        private readonly List<Person> _people = new()
-        {
+        private readonly List<Person> _people =
+        [
             new Person { Name = "Alice", Age = 25 },
             new Person { Name = "Bob", Age = 35 },
-            new Person { Name = "Charlie", Age = 40, Documents = new List<Documents> { new() { Title = "MOU" } } },
-            new Person { Name = "David", Age = 32, Documents = new List<Documents> { new() { Title = "Contract" } } },
-        };
+            new Person { Name = "Charlie", Age = 40, Documents = [new() { Title = "MOU" }] },
+            new Person { Name = "David", Age = 32, Documents = [new() { Title = "Contract" }] },
+        ];
 
         private readonly Action<Options> _options = opts =>
         {
             opts.MaxNodeCount = 20;
-            opts.AddAllowedFields("Name", "Age", "Documents.Title", "Price");
+            opts.AddAllowedFields("Name", "Age", "Documents.Title", "Price", "Attributes.ValueInt");
         };
 
         [Fact]
@@ -179,6 +199,21 @@ namespace JadeDSL.Tests
 
             Assert.Equal(2, result.Count);
             Assert.All(result, p => Assert.Contains("Product", p.Name));
+        }
+
+        [Fact]
+        public void Should_Filter_By_Nullable_Int_Between_Operator()
+        {
+            var filter = new FilterBuilder()
+                .WithExpression("Attributes.ValueInt~10..11")
+                .ConfigureOptions(_options)
+                .Build();
+
+            var result = _attributesItems.AsQueryable().WhereDsl(filter).ToList();
+
+            Assert.Equal(2, result.Count);
+            Assert.All(result, i =>
+                Assert.True(i.Attributes?.Any(a => a.ValueInt == 10 || a.ValueInt == 11)));
         }
     }
 }

@@ -1,6 +1,5 @@
 ﻿using JadeDSL.Core.Helpers;
 using System.Linq.Expressions;
-using System.Reflection;
 
 namespace JadeDSL.Core.Extensions
 {
@@ -8,23 +7,29 @@ namespace JadeDSL.Core.Extensions
     {
         public static Expression Between(Expression left, Expression right)
         {
-            if (right is not ConstantExpression constExpr || constExpr.Value is not string s)
-                throw new NotSupportedException("BETWEEN requires a constant range string like '10..20'.");
+            if (right is not ConstantExpression constExpr || constExpr.Value is not string raw)
+                throw new NotSupportedException("Between expression must have a string constant value.");
 
-            var parts = s.Split("..");
-
+            var parts = raw.Split("..");
             if (parts.Length != 2)
-                throw new ArgumentException("BETWEEN value must be in 'min..max' format.");
+                throw new ArgumentException("Between value must be in 'min..max' format.");
 
-            var (minRaw, maxRaw) = (parts[0], parts[1]);
+            var leftBaseType = Nullable.GetUnderlyingType(left.Type) ?? left.Type;
 
-            var min = ParseType(left.Type, minRaw);
-            var max = ParseType(left.Type, maxRaw);
+            object minValue = Convert.ChangeType(parts[0], leftBaseType);
+            object maxValue = Convert.ChangeType(parts[1], leftBaseType);
 
-            var greaterThanOrEqual = Expression.GreaterThanOrEqual(left, min);
-            var lessThanOrEqual = Expression.LessThanOrEqual(left, max);
+            var minConst = Expression.Constant(minValue, leftBaseType);
+            var maxConst = Expression.Constant(maxValue, leftBaseType);
 
-            return Expression.AndAlso(greaterThanOrEqual, lessThanOrEqual);
+            // Promote constants if left is nullable
+            Expression min = left.Type != leftBaseType ? Expression.Convert(minConst, left.Type) : minConst;
+            Expression max = left.Type != leftBaseType ? Expression.Convert(maxConst, left.Type) : maxConst;
+
+            return Expression.AndAlso(
+                Expression.GreaterThanOrEqual(left, min),
+                Expression.LessThanOrEqual(left, max)
+            );
         }
 
         public static Expression Like(Expression member, Expression constant, Symbol op)
