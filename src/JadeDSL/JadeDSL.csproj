@@ -7,11 +7,14 @@
     <PackageId>JadeDSL</PackageId>
     <Version>$(Version)</Version>
     <Authors>Renato Burton</Authors>
-    <PackageDescription>JadeDSL</PackageDescription>
+    <PackageDescription>JadeDSL</PackageDescription>    
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\JadeDSL.Core\JadeDSL.Core.csproj" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+    <None Include="icon.png" Pack="true" PackagePath="" />
   </ItemGroup>
-
 </Project>
