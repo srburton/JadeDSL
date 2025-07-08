@@ -14,6 +14,16 @@ namespace JadeDSL.Tests
         public int? ValueInt { get; set; }
     }
 
+    public class CompanyDocument
+    {
+        public Document? Document { get; set; }
+    }
+
+    public class Document
+    {
+        public string? Title { get; set; }
+    }
+
     public class ExpressionBuilderTests
     {
         List<Property> _data = new List<Property>
@@ -41,6 +51,13 @@ namespace JadeDSL.Tests
                     }
                 }
             };
+
+        private readonly List<CompanyDocument> _documents = new()
+        {
+            new CompanyDocument { Document = new Document { Title = "Invoice 2024" } },
+            new CompanyDocument { Document = new Document { Title = "Receipt" } },
+            new CompanyDocument { Document = null }
+        };
 
         [Fact]
         public void CombineGroup_Should_Group_All_Expressions_With_Same_Collection_Into_Single_Any()
@@ -83,7 +100,36 @@ namespace JadeDSL.Tests
                 a.ValueInt.Value >= 1 &&
                 a.ValueInt.Value <= 10);
 
-            Assert.True(hasMatchingAttribute, "Filtered property should contain attribute with Name='Monthly Cash Flow' and ValueInt between 1 and 10");
+            Assert.True(hasMatchingAttribute);
+        }
+
+        [Fact]
+        public void Should_Filter_By_Document_Title()
+        {
+
+            // Arrange
+            var group = new NodeGroup
+            {
+                Operator = LogicalOperatorType.And,
+                Children = new List<Node>
+                {
+                    new NodeExpression
+                    {
+                        Field = "document.title",
+                        Operator = Symbols.LikeBoth,
+                        Value = "Invoice"
+                    }
+                }
+            };
+
+            // Act
+            var predicate = ExpressionBuilder.BuildPredicate<CompanyDocument>(group);
+            var compiled = predicate.Compile();
+            var filtered = _documents.Where(compiled).ToList();
+
+            // Assert
+            Assert.Single(filtered);
+            Assert.Equal("Invoice 2024", filtered[0].Document?.Title);
         }
     }
 }

@@ -118,8 +118,44 @@ namespace JadeDSL.Core
 
                 return BuildComparison(expr.Operator, member, constant);
             }
+            
+            var rootProp = ConvertToPascalCase(pathParts[0]);
+            var memberExpr = Expression.PropertyOrField(param, rootProp);
+            bool isCollection = memberExpr.Type.GetInterfaces()
+                .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
 
-            return BuildGroupedAny<T>(param, [expr], LogicalOperatorType.And);
+            if (isCollection)
+            {
+                return BuildGroupedAny<T>(param, new[] { expr }, LogicalOperatorType.And);
+            }
+            else
+            {
+                Expression current = param;
+                Expression? nullCheck = null;
+                for (int i = 0; i < pathParts.Length; i++)
+                {
+                    var prop = ConvertToPascalCase(pathParts[i]);
+                    current = Expression.PropertyOrField(current, prop);
+                    if (i < pathParts.Length - 1)
+                    {
+                        var notNull = Expression.NotEqual(current, Expression.Constant(null, current.Type));
+                        nullCheck = nullCheck == null ? notNull : Expression.AndAlso(nullCheck, notNull);
+                    }
+                }
+
+                Expression body;
+                if (expr.Operator == Symbols.Between)
+                    body = ExpressionUtility.Between(current, Expression.Constant(expr.Value));
+                else if (expr.Operator == Symbols.Like || expr.Operator == Symbols.LikeBoth)
+                    body = ExpressionUtility.Like(current, Expression.Constant(expr.Value), expr.Operator);
+                else
+                {
+                    var constant = ExpressionUtility.ParseType(current.Type, expr.Value);
+                    body = BuildComparison(expr.Operator, current, constant);
+                }
+
+                return nullCheck != null ? Expression.AndAlso(nullCheck, body) : body;
+            }
         }
 
         private static Expression BuildGroupedAny<T>(ParameterExpression param, IEnumerable<NodeExpression> group, LogicalOperatorType logical)
