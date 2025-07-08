@@ -34,9 +34,9 @@ namespace JadeDSL.Core.Extensions
 
         public static Expression Like(Expression member, Expression constant, Symbol op)
         {
-            var method = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) })!;
-            var methodStartsWith = typeof(string).GetMethod(nameof(string.StartsWith), new[] { typeof(string) })!;
-            var methodEndsWith = typeof(string).GetMethod(nameof(string.EndsWith), new[] { typeof(string) })!;
+            var method = typeof(string).GetMethod(nameof(string.Contains), [typeof(string)])!;
+            var methodStartsWith = typeof(string).GetMethod(nameof(string.StartsWith), [typeof(string)])!;
+            var methodEndsWith = typeof(string).GetMethod(nameof(string.EndsWith), [typeof(string)])!;
 
             var value = ((ConstantExpression)constant).Value?.ToString() ?? "";
 

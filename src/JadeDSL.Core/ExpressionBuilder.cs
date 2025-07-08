@@ -35,38 +35,62 @@ namespace JadeDSL.Core
             };
         }
 
+        /// <summary>
+        /// Combines a group of nodes (filters) into a single expression using AND/OR logic.
+        /// Groups expressions with the same root collection property into a single `.Any()` call.
+        /// </summary>
+        /// <typeparam name="T">Type of the root entity.</typeparam>
+        /// <param name="group">The group node containing child expressions.</param>
+        /// <param name="param">The parameter expression representing the root entity.</param>
+        /// <returns>An expression representing the combined filter logic.</returns>
         private static Expression CombineGroup<T>(NodeGroup group, ParameterExpression param)
         {
+            // Separate simple expressions (NodeExpression) and nested groups (NodeGroup)
             var exprNodes = group.Children.OfType<NodeExpression>().ToList();
             var otherNodes = group.Children.Except(exprNodes).ToList();
 
             var expressions = new List<Expression>();
 
-            // Group expressions by their root path (e.g. "attributes")
-            foreach (var expr in exprNodes)
+            // Group NodeExpressions by their root property (prefix before the first dot)
+            var groupedByRoot = exprNodes.GroupBy(expr =>
             {
                 var path = expr.Field.Split('.');
+                return path[0];
+            });
+
+            foreach (var rootGroup in groupedByRoot)
+            {
+                var firstExpr = rootGroup.First();
+                var path = firstExpr.Field.Split('.');
                 var rootProp = ConvertToPascalCase(path[0]);
                 var member = Expression.Property(param, rootProp);
 
-                // Se for coleção (navegação), use BuildGroupedAny
-                var isCollection = member.Type.GetInterfaces()
+                // Check if the root property is a collection (implements IEnumerable<T>)
+                bool isCollection = member.Type.GetInterfaces()
                     .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
 
                 if (path.Length > 1 && isCollection)
                 {
-                    expressions.Add(BuildGroupedAny<T>(param, [expr], group.Operator));
+                    // If it's a collection with nested properties, build a single .Any() for all expressions in this group
+                    expressions.Add(BuildGroupedAny<T>(param, rootGroup, group.Operator));
                 }
                 else
                 {
-                    expressions.Add(BuildConditionExpression<T>(param, expr));
+                    // For non-collection or simple properties, build expressions individually
+                    foreach (var expr in rootGroup)
+                    {
+                        expressions.Add(BuildConditionExpression<T>(param, expr));
+                    }
                 }
             }
 
-            // Recurse into nested group nodes
+            // Recursively process nested groups
             foreach (var node in otherNodes)
+            {
                 expressions.Add(BuildExpressionBody<T>(node, param));
+            }
 
+            // Combine all expressions with the group's logical operator (AND / OR)
             return group.Operator switch
             {
                 LogicalOperatorType.And => expressions.Aggregate(Expression.AndAlso),
@@ -74,6 +98,7 @@ namespace JadeDSL.Core
                 _ => throw new NotSupportedException("Unknown logical operator")
             };
         }
+
 
         private static Expression BuildConditionExpression<T>(ParameterExpression param, NodeExpression expr)
         {
