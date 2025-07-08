@@ -7,7 +7,7 @@
     <PackageId>JadeDSL.Core</PackageId>
     <Version>$(Version)</Version>
     <Authors>Renato Burton</Authors>
-    <PackageDescription>JadeDSL Core</PackageDescription>
+    <PackageDescription>JadeDSL is a lightweight, expressive Domain Specific Language (DSL) parser and evaluator for building complex LINQ-compatible filters in C#.</PackageDescription>
   </PropertyGroup>
 
   <ItemGroup>
