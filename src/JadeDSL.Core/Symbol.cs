@@ -15,14 +15,18 @@ namespace JadeDSL.Core
         public static readonly Symbol LikeBoth = "%%";
         public static readonly Symbol Between = "~";
 
-        public static readonly Symbol[] Others = [
+        public static readonly Symbol Range = "..";
+        public static readonly Symbol DoubleQuote = "\"";
+
+        public static readonly Symbol[] MiscSymbols = [
+            Range,
+            DoubleQuote,
            "(",
            ")",
            ".",
            "$",
            ",",
-           "*",
-           "'",
+           "*",           
            "`",
            "´",
            "\\",
@@ -32,7 +36,7 @@ namespace JadeDSL.Core
            "!"           
         ];
 
-        public static readonly Symbol[] All = [
+        public static readonly Symbol[] OperatorSymbols = [
            Equal,
            NotEqual,
            GreaterThan,
@@ -42,7 +46,7 @@ namespace JadeDSL.Core
            Colon,
            Like,
            LikeBoth,
-           Between               
+           Between
         ];
     }
 

@@ -1,7 +1,7 @@
 ﻿using JadeDSL.Core;
 using JadeDSL.Core.Types;
 
-public static class TokenExtensions
+public static class TokenExtension
 {
     public static List<Token> ResolveAliases(this IEnumerable<Token> tokens, Options options)
     {

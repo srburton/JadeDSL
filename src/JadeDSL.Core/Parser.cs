@@ -128,7 +128,7 @@ namespace JadeDSL.Core
             string name = "";
             string value = "";
 
-            foreach (var symbol in Symbols.All.OrderByDescending(s => s.ToString().Length))
+            foreach (var symbol in Symbols.OperatorSymbols.OrderByDescending(s => s.ToString().Length))
             {
                 var symbolStr = symbol.ToString();
                 var opIndex = expr.IndexOf(symbolStr, StringComparison.Ordinal);

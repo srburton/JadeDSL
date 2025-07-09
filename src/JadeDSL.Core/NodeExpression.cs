@@ -30,17 +30,17 @@
             {
                 // Field must not be empty and must not end with an operator symbol
                 if (string.IsNullOrWhiteSpace(Field) ||
-                    Symbols.All.Any(sym => Field.EndsWith(sym.ToString())))
+                    Symbols.OperatorSymbols.Any(sym => Field.EndsWith(sym.ToString())))
                     return false;
 
                 // Operator must be one of the supported ones
-                if (!Symbols.All.Contains(Operator))
+                if (!Symbols.OperatorSymbols.Contains(Operator))
                     return false;
 
                 // Value must not start with a known operator (to avoid malformed inputs like ":!=abc")
                 if (string.IsNullOrWhiteSpace(Value) ||
-                    Symbols.All.Any(sym => Value.StartsWith(sym.ToString()) || Value.EndsWith(sym.ToString())) ||
-                    Symbols.Others.Any(sym => Value.StartsWith(sym.ToString()) || Value.EndsWith(sym.ToString())))
+                    Symbols.OperatorSymbols.Any(sym => Value.StartsWith(sym.ToString()) || Value.EndsWith(sym.ToString())) ||
+                    Symbols.MiscSymbols.Any(sym => Value.StartsWith(sym.ToString()) || Value.EndsWith(sym.ToString())))
                     return false;
 
                 return true;
