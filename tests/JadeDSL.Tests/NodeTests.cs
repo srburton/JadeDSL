@@ -104,7 +104,7 @@ namespace JadeDSL.Tests
                                 ]
                             },
                             new NodeGroup
-                            {
+                            {                                
                                 Operator = LogicalOperatorType.And,
                                 Children =
                                 [
