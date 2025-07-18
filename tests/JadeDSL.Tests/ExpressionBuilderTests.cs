@@ -31,6 +31,20 @@ namespace JadeDSL.Tests
         public string? Title { get; set; }
     }
 
+    public class Outer
+    {
+        public List<Inner>? Inners { get; set; }
+    }
+    public class Inner
+    {
+        public List<Leaf>? Leafs { get; set; }
+    }
+    public class Leaf
+    {
+        public string? Value { get; set; }
+    }
+
+
     public class ExpressionBuilderTests
     {
         List<Property> _data = new List<Property>
@@ -181,6 +195,61 @@ namespace JadeDSL.Tests
             var matched = filtered.First();
             Assert.NotNull(matched.Attributes);
             Assert.Contains(matched.Attributes, a => a.SubAttribute?.Name == "TargetName");
+        }
+
+        [Fact]
+        public void Should_Filter_By_MultiLevel_Collection()
+        {
+            var data = new List<Outer>
+            {
+                new Outer
+                {
+                    Inners = new List<Inner>
+                    {
+                        new Inner
+                        {
+                            Leafs = new List<Leaf>
+                            {
+                                new Leaf { Value = "ok" }
+                            }
+                        }
+                    }
+                },
+                new Outer
+                {
+                    Inners = new List<Inner>
+                    {
+                        new Inner
+                        {
+                            Leafs = new List<Leaf>
+                            {
+                                new Leaf { Value = "fail" }
+                            }
+                        }
+                    }
+                }
+            };
+
+            var group = new NodeGroup
+            {
+                Operator = LogicalOperatorType.And,
+                Children = new List<Node>
+                {
+                    new NodeExpression
+                    {
+                        Field = "inners.leafs.value",
+                        Operator = Symbols.Colon,
+                        Value = "ok"
+                    }
+                }
+            };
+
+            var predicate = ExpressionBuilder.BuildPredicate<Outer>(group);
+            var compiled = predicate.Compile();
+            var filtered = data.Where(compiled).ToList();
+
+            Assert.Single(filtered);
+            Assert.Equal("ok", filtered[0].Inners![0].Leafs![0].Value);
         }
     }
 }

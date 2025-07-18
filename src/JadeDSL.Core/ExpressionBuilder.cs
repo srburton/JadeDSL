@@ -246,27 +246,12 @@ namespace JadeDSL.Core
 
             if (isCollection)
             {
-                // Handle collection by recursively building an Any() expression
                 var elementType = memberType.GetGenericArguments()[0];
                 var elementParam = Expression.Parameter(elementType, "x");
 
-                var subExpression = BuildConditionExpressionForPath(elementParam, path, op, value, index + 1);
+                var subExpression = BuildConditionExpressionForPath(elementParam, [.. path.Skip(index + 1)], op, value, 0);
 
-                // Null-check chain for intermediate properties except last one
-                Expression? nullChecks = null;
-                Expression currentExpr = elementParam;
-
-                for (int i = index + 1; i < path.Length - 1; i++)
-                {
-                    var intermediateProp = ConvertToPascalCase(path[i]);
-                    currentExpr = Expression.PropertyOrField(currentExpr, intermediateProp);
-                    var notNullCheck = Expression.NotEqual(currentExpr, Expression.Constant(null, currentExpr.Type));
-                    nullChecks = nullChecks == null ? notNullCheck : Expression.AndAlso(nullChecks, notNullCheck);
-                }
-
-                var body = nullChecks != null ? Expression.AndAlso(nullChecks, subExpression) : subExpression;
-                var lambda = Expression.Lambda(body, elementParam);
-
+                var lambda = Expression.Lambda(subExpression, elementParam);
                 var collectionNotNull = Expression.NotEqual(member, Expression.Constant(null));
 
                 return Expression.AndAlso(
