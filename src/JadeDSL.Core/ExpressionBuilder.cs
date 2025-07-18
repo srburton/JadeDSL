@@ -102,69 +102,20 @@ namespace JadeDSL.Core
         private static Expression BuildConditionExpression<T>(ParameterExpression param, NodeExpression expr)
         {
             var pathParts = expr.Field.Split('.');
-
             if (pathParts.Length == 1)
             {
-                // Simple property (non-nested)
+                // properties simple mapped to the parameter
                 var member = Expression.PropertyOrField(param, ConvertToPascalCase(expr.Field));
-
                 if (expr.Operator == Symbols.Between)
                     return ExpressionUtility.Between(member, Expression.Constant(expr.Value));
-
                 if (expr.Operator == Symbols.Like || expr.Operator == Symbols.LikeBoth)
                     return ExpressionUtility.Like(member, Expression.Constant(expr.Value), expr.Operator);
-
                 var constant = ExpressionUtility.ParseType(member.Type, expr.Value);
                 return BuildComparison(expr.Operator, member, constant);
             }
 
-            // Nested property case
-            var rootPropName = ConvertToPascalCase(pathParts[0]);
-            var rootMember = Expression.PropertyOrField(param, rootPropName);
-
-            // Check if root member is a collection
-            bool isCollection = rootMember.Type.GetInterfaces()
-                .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
-
-            if (isCollection)
-            {
-                // For collection properties, build an .Any() expression with the filter inside
-                return BuildGroupedAny<T>(param, new[] { expr }, LogicalOperatorType.And);
-            }
-            else
-            {
-                // For nested non-collection properties, build expression with null checks for safety
-                Expression current = param;
-                Expression? nullChecks = null;
-
-                for (int i = 0; i < pathParts.Length; i++)
-                {
-                    var propName = ConvertToPascalCase(pathParts[i]);
-                    current = Expression.PropertyOrField(current, propName);
-
-                    // Add null checks for all intermediate levels (except the last property)
-                    if (i < pathParts.Length - 1)
-                    {
-                        var notNullCheck = Expression.NotEqual(current, Expression.Constant(null, current.Type));
-                        nullChecks = nullChecks == null ? notNullCheck : Expression.AndAlso(nullChecks, notNullCheck);
-                    }
-                }
-
-                Expression body;
-
-                if (expr.Operator == Symbols.Between)
-                    body = ExpressionUtility.Between(current, Expression.Constant(expr.Value));
-                else if (expr.Operator == Symbols.Like || expr.Operator == Symbols.LikeBoth)
-                    body = ExpressionUtility.Like(current, Expression.Constant(expr.Value), expr.Operator);
-                else
-                {
-                    var constant = ExpressionUtility.ParseType(current.Type, expr.Value);
-                    body = BuildComparison(expr.Operator, current, constant);
-                }
-
-                // Combine null checks and actual comparison with AND
-                return nullChecks != null ? Expression.AndAlso(nullChecks, body) : body;
-            }
+            // Nested recursive
+            return BuildConditionExpressionForPath(param, pathParts, expr.Operator, expr.Value, 0);
         }
 
         /// <summary>
@@ -218,7 +169,7 @@ namespace JadeDSL.Core
                 Expression.Call(
                     typeof(Enumerable),
                     nameof(Enumerable.Any),
-                    new[] { elementType },
+                    [elementType],
                     collectionProperty,
                     lambda
                 )

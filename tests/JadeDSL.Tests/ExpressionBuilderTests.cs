@@ -34,7 +34,9 @@ namespace JadeDSL.Tests
     public class Outer
     {
         public List<Inner>? Inners { get; set; }
+        public Inner? Inner { get; set; }
     }
+
     public class Inner
     {
         public List<Leaf>? Leafs { get; set; }
@@ -250,6 +252,55 @@ namespace JadeDSL.Tests
 
             Assert.Single(filtered);
             Assert.Equal("ok", filtered[0].Inners![0].Leafs![0].Value);
+        }
+
+        [Fact]
+        public void Should_Filter_By_Single_MultiLevel_Collection()
+        {
+            var data = new List<Outer>
+            {
+                new Outer
+                {
+                    Inner = new Inner
+                    {
+                        Leafs = new List<Leaf>
+                        {
+                            new Leaf { Value = "ok" }
+                        }
+                    }
+                },
+                new Outer
+                {
+                    Inner = new Inner
+                    {
+                        Leafs = new List<Leaf>
+                        {
+                            new Leaf { Value = "fail" }
+                        }
+                    }
+                }
+            };
+
+            var group = new NodeGroup
+            {
+                Operator = LogicalOperatorType.And,
+                Children = new List<Node>
+                {
+                    new NodeExpression
+                    {
+                        Field = "inner.leafs.value",
+                        Operator = Symbols.Colon,
+                        Value = "ok"
+                    }
+                }
+            };
+
+            var predicate = ExpressionBuilder.BuildPredicate<Outer>(group);
+            var compiled = predicate.Compile();
+            var filtered = data.Where(compiled).ToList();
+
+            Assert.Single(filtered);
+            Assert.Equal("ok", filtered[0].Inner?.Leafs?[0].Value);
         }
     }
 }
