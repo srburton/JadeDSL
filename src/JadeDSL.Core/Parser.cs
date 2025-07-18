@@ -8,9 +8,9 @@ namespace JadeDSL.Core
     public class Parser
     {
         private int position;
-        private readonly Options options;        
-        
-        private List<Token> tokens = [];
+        private readonly Options options;
+
+        private List<Token> tokens = new List<Token>();
 
         public static Node? Empty => null;
 
@@ -21,7 +21,7 @@ namespace JadeDSL.Core
         public Parser(Options options)
         {
             this.options = options;
-        }     
+        }
 
         /// <summary>
         /// Parses a list of tokens into a filter expression tree (AST).
@@ -38,23 +38,27 @@ namespace JadeDSL.Core
                 throw new InvalidOperationException($"Token count exceeds limit ({options.MaxNodeCount})");
 
             this.tokens = tokens;
-            
             position = 0;
 
-            return ParseExpression();
+            // Start parsing with depth 0
+            return ParseExpression(0);
         }
 
         /// <summary>
-        /// Parses OR expressions (|) recursively.
+        /// Parses OR expressions (|) recursively, controlling nesting depth.
         /// </summary>
-        private Node ParseExpression()
+        private Node ParseExpression(int currentDepth)
         {
-            var left = ParseTerm();
+            // Check maximum nesting depth
+            if (currentDepth > options.MaxDepth)
+                throw new InvalidOperationException($"Maximum nesting depth exceeded ({options.MaxDepth})");
+
+            var left = ParseTerm(currentDepth);
 
             while (Match(TokenType.Or))
             {
                 Consume(TokenType.Or);
-                var right = ParseTerm();
+                var right = ParseTerm(currentDepth);
 
                 left = new NodeGroup
                 {
@@ -67,16 +71,16 @@ namespace JadeDSL.Core
         }
 
         /// <summary>
-        /// Parses AND expressions (&) recursively.
+        /// Parses AND expressions (&) recursively, controlling nesting depth.
         /// </summary>
-        private Node ParseTerm()
+        private Node ParseTerm(int currentDepth)
         {
-            var left = ParseFactor();
+            var left = ParseFactor(currentDepth);
 
             while (Match(TokenType.And))
             {
                 Consume(TokenType.And);
-                var right = ParseFactor();
+                var right = ParseFactor(currentDepth);
 
                 left = new NodeGroup
                 {
@@ -89,14 +93,18 @@ namespace JadeDSL.Core
         }
 
         /// <summary>
-        /// Parses either grouped expressions with parentheses or leaf filter expressions.
+        /// Parses grouped expressions with parentheses or leaf filter expressions.
+        /// Increments nesting depth on entering a parenthesized group.
         /// </summary>
-        private Node ParseFactor()
+        private Node ParseFactor(int currentDepth)
         {
             if (Match(TokenType.LeftParen))
             {
                 Consume(TokenType.LeftParen);
-                var expr = ParseExpression();
+
+                // Increment depth when entering parentheses
+                var expr = ParseExpression(currentDepth + 1);
+
                 Consume(TokenType.RightParen);
                 return expr;
             }
@@ -157,10 +165,10 @@ namespace JadeDSL.Core
             if (!nodeExpression.IsValid)
                 throw new InvalidOperationException($"Invalid filter expression: {expr}");
 
-            if(options.AllowedFields.Contains(nodeExpression.Field) == false)
+            if (!options.AllowedFields.Contains(nodeExpression.Field))
                 throw new InvalidOperationException($"Field '{nodeExpression.Field}' is not allowed in this context.");
 
-            if(options.AllowedSymbols.Contains(nodeExpression.Operator) == false)
+            if (!options.AllowedSymbols.Contains(nodeExpression.Operator))
                 throw new InvalidOperationException($"Operator '{nodeExpression.Operator}' is not allowed in this context.");
 
             return nodeExpression;
@@ -175,7 +183,7 @@ namespace JadeDSL.Core
         }
 
         /// <summary>
-        /// Consumes the current token if it matches the expected type, otherwise throws.
+        /// Consumes the current token if it matches the expected type; otherwise throws.
         /// </summary>
         /// <exception cref="InvalidOperationException">Thrown when the expected token type is not matched.</exception>
         private Token Consume(TokenType type)

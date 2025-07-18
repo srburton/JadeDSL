@@ -5,19 +5,20 @@ using System.Linq.Expressions;
 namespace JadeDSL.Core
 {
     /// <summary>
-    /// Builds LINQ expressions dynamically based on DSL-style filter nodes.
+    /// Dynamically builds LINQ expressions from a tree of DSL filter nodes.
     /// </summary>
     /// <remarks>
-    /// This class is internal and intended to be used by the filter parser engine.
+    /// This static class is intended to be used internally by the filtering engine to translate parsed filter nodes
+    /// into executable expression trees.
     /// </remarks>
     public static class ExpressionBuilder
     {
         /// <summary>
-        /// Builds a predicate expression from a DSL node tree.
+        /// Constructs a LINQ predicate expression from a filter node tree.
         /// </summary>
-        /// <typeparam name="T">The root entity type.</typeparam>
-        /// <param name="node">The root node of the expression tree.</param>
-        /// <returns>A compiled lambda expression.</returns>
+        /// <typeparam name="T">Type of the root entity.</typeparam>
+        /// <param name="node">Root filter node.</param>
+        /// <returns>Lambda expression representing the filter predicate.</returns>
         public static Expression<Func<T, bool>> BuildPredicate<T>(Node node)
         {
             var parameter = Expression.Parameter(typeof(T), "e");
@@ -25,58 +26,53 @@ namespace JadeDSL.Core
             return Expression.Lambda<Func<T, bool>>(body, parameter);
         }
 
+        /// <summary>
+        /// Recursively builds an expression from a node (group or expression).
+        /// </summary>
         private static Expression BuildExpressionBody<T>(Node node, ParameterExpression param)
         {
             return node switch
             {
                 NodeGroup group => CombineGroup<T>(group, param),
                 NodeExpression expr => BuildConditionExpression<T>(param, expr),
-                _ => throw new NotSupportedException("Unknown node type")
+                _ => throw new NotSupportedException("Unknown node type encountered.")
             };
         }
 
         /// <summary>
-        /// Combines a group of nodes (filters) into a single expression using AND/OR logic.
-        /// Groups expressions with the same root collection property into a single `.Any()` call.
+        /// Combines multiple child expressions of a group using AND/OR logic.
+        /// Groups expressions sharing the same root collection property into a single `.Any()` call for efficiency.
         /// </summary>
-        /// <typeparam name="T">Type of the root entity.</typeparam>
-        /// <param name="group">The group node containing child expressions.</param>
-        /// <param name="param">The parameter expression representing the root entity.</param>
-        /// <returns>An expression representing the combined filter logic.</returns>
         private static Expression CombineGroup<T>(NodeGroup group, ParameterExpression param)
         {
-            // Separate simple expressions (NodeExpression) and nested groups (NodeGroup)
-            var exprNodes = group.Children.OfType<NodeExpression>().ToList();
-            var otherNodes = group.Children.Except(exprNodes).ToList();
+            // Separate simple filter expressions and nested groups
+            var simpleExpressions = group.Children.OfType<NodeExpression>().ToList();
+            var nestedGroups = group.Children.Except(simpleExpressions).ToList();
 
             var expressions = new List<Expression>();
 
-            // Group NodeExpressions by their root property (prefix before the first dot)
-            var groupedByRoot = exprNodes.GroupBy(expr =>
-            {
-                var path = expr.Field.Split('.');
-                return path[0];
-            });
+            // Group simple expressions by their root property name (before first dot)
+            var groupedByRoot = simpleExpressions.GroupBy(expr => expr.Field.Split('.')[0]);
 
             foreach (var rootGroup in groupedByRoot)
             {
                 var firstExpr = rootGroup.First();
-                var path = firstExpr.Field.Split('.');
-                var rootProp = ConvertToPascalCase(path[0]);
-                var member = Expression.Property(param, rootProp);
+                var pathParts = firstExpr.Field.Split('.');
+                var rootPropName = ConvertToPascalCase(pathParts[0]);
+                var rootProperty = Expression.Property(param, rootPropName);
 
-                // Check if the root property is a collection (implements IEnumerable<T>)
-                bool isCollection = member.Type.GetInterfaces()
+                // Determine if root property is a collection (IEnumerable<T>)
+                bool isCollection = rootProperty.Type.GetInterfaces()
                     .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
 
-                if (path.Length > 1 && isCollection)
+                if (pathParts.Length > 1 && isCollection)
                 {
-                    // If it's a collection with nested properties, build a single .Any() for all expressions in this group
+                    // Build a single .Any() expression combining all filters on this collection
                     expressions.Add(BuildGroupedAny<T>(param, rootGroup, group.Operator));
                 }
                 else
                 {
-                    // For non-collection or simple properties, build expressions individually
+                    // Build individual expressions for non-collection properties or simple paths
                     foreach (var expr in rootGroup)
                     {
                         expressions.Add(BuildConditionExpression<T>(param, expr));
@@ -85,27 +81,31 @@ namespace JadeDSL.Core
             }
 
             // Recursively process nested groups
-            foreach (var node in otherNodes)
+            foreach (var node in nestedGroups)
             {
                 expressions.Add(BuildExpressionBody<T>(node, param));
             }
 
-            // Combine all expressions with the group's logical operator (AND / OR)
+            // Combine all expressions using group's logical operator (AND / OR)
             return group.Operator switch
             {
                 LogicalOperatorType.And => expressions.Aggregate(Expression.AndAlso),
                 LogicalOperatorType.Or => expressions.Aggregate(Expression.OrElse),
-                _ => throw new NotSupportedException("Unknown logical operator")
+                _ => throw new NotSupportedException("Unknown logical operator.")
             };
         }
 
-
+        /// <summary>
+        /// Builds a condition expression for a single filter node.
+        /// Handles nested properties and collections.
+        /// </summary>
         private static Expression BuildConditionExpression<T>(ParameterExpression param, NodeExpression expr)
         {
             var pathParts = expr.Field.Split('.');
 
             if (pathParts.Length == 1)
             {
+                // Simple property (non-nested)
                 var member = Expression.PropertyOrField(param, ConvertToPascalCase(expr.Field));
 
                 if (expr.Operator == Symbols.Between)
@@ -115,35 +115,43 @@ namespace JadeDSL.Core
                     return ExpressionUtility.Like(member, Expression.Constant(expr.Value), expr.Operator);
 
                 var constant = ExpressionUtility.ParseType(member.Type, expr.Value);
-
                 return BuildComparison(expr.Operator, member, constant);
             }
-            
-            var rootProp = ConvertToPascalCase(pathParts[0]);
-            var memberExpr = Expression.PropertyOrField(param, rootProp);
-            bool isCollection = memberExpr.Type.GetInterfaces()
+
+            // Nested property case
+            var rootPropName = ConvertToPascalCase(pathParts[0]);
+            var rootMember = Expression.PropertyOrField(param, rootPropName);
+
+            // Check if root member is a collection
+            bool isCollection = rootMember.Type.GetInterfaces()
                 .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
 
             if (isCollection)
             {
+                // For collection properties, build an .Any() expression with the filter inside
                 return BuildGroupedAny<T>(param, new[] { expr }, LogicalOperatorType.And);
             }
             else
             {
+                // For nested non-collection properties, build expression with null checks for safety
                 Expression current = param;
-                Expression? nullCheck = null;
+                Expression? nullChecks = null;
+
                 for (int i = 0; i < pathParts.Length; i++)
                 {
-                    var prop = ConvertToPascalCase(pathParts[i]);
-                    current = Expression.PropertyOrField(current, prop);
+                    var propName = ConvertToPascalCase(pathParts[i]);
+                    current = Expression.PropertyOrField(current, propName);
+
+                    // Add null checks for all intermediate levels (except the last property)
                     if (i < pathParts.Length - 1)
                     {
-                        var notNull = Expression.NotEqual(current, Expression.Constant(null, current.Type));
-                        nullCheck = nullCheck == null ? notNull : Expression.AndAlso(nullCheck, notNull);
+                        var notNullCheck = Expression.NotEqual(current, Expression.Constant(null, current.Type));
+                        nullChecks = nullChecks == null ? notNullCheck : Expression.AndAlso(nullChecks, notNullCheck);
                     }
                 }
 
                 Expression body;
+
                 if (expr.Operator == Symbols.Between)
                     body = ExpressionUtility.Between(current, Expression.Constant(expr.Value));
                 else if (expr.Operator == Symbols.Like || expr.Operator == Symbols.LikeBoth)
@@ -154,79 +162,162 @@ namespace JadeDSL.Core
                     body = BuildComparison(expr.Operator, current, constant);
                 }
 
-                return nullCheck != null ? Expression.AndAlso(nullCheck, body) : body;
+                // Combine null checks and actual comparison with AND
+                return nullChecks != null ? Expression.AndAlso(nullChecks, body) : body;
             }
         }
 
-        private static Expression BuildGroupedAny<T>(ParameterExpression param, IEnumerable<NodeExpression> group, LogicalOperatorType logical)
+        /// <summary>
+        /// Builds an expression that calls .Any() on a collection property,
+        /// combining multiple filter expressions with logical AND or OR inside the Any() lambda.
+        /// </summary>
+        private static Expression BuildGroupedAny<T>(
+            ParameterExpression rootParam,
+            IEnumerable<NodeExpression> expressions,
+            LogicalOperatorType logicalOperator)
         {
-            if (!group.Any())
-                throw new InvalidOperationException("No expressions to group.");
+            if (!expressions.Any())
+                throw new InvalidOperationException("No expressions provided for grouped .Any() construction.");
 
-            var pathParts = group.First().Field.Split('.');
+            var firstExpr = expressions.First();
+            var pathParts = firstExpr.Field.Split('.');
             var collectionName = ConvertToPascalCase(pathParts[0]);
-            var collectionProp = Expression.Property(param, collectionName);
-            var collectionType = collectionProp.Type;
+            var collectionProperty = Expression.Property(rootParam, collectionName);
+            var collectionType = collectionProperty.Type;
 
-            var enumerableInterface = collectionType
-                .GetInterfaces()
+            // Find the generic IEnumerable<T> interface to determine element type
+            var enumerableInterface = collectionType.GetInterfaces()
                 .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
 
             if (enumerableInterface == null)
                 throw new InvalidOperationException($"Property '{collectionName}' must be a generic collection (IEnumerable<T>).");
 
-            var itemType = enumerableInterface.GetGenericArguments().First();
-            var itemParam = Expression.Parameter(itemType, "x");
+            var elementType = enumerableInterface.GetGenericArguments()[0];
+            var elementParam = Expression.Parameter(elementType, "x");
 
-            var inner = group.Select(expr =>
+            // Build individual expressions for the inner properties starting after the collection root
+            var innerExpressions = expressions.Select(expr =>
             {
                 var subPath = expr.Field.Split('.').Skip(1).ToArray();
-                return BuildConditionExpressionForPath(itemParam, subPath, expr.Operator, expr.Value, 0);
+                return BuildConditionExpressionForPath(elementParam, subPath, expr.Operator, expr.Value, 0);
             });
 
-            var combined = logical switch
+            // Combine inner expressions with specified logical operator
+            var combinedInner = logicalOperator switch
             {
-                LogicalOperatorType.And => inner.Aggregate(Expression.AndAlso),
-                LogicalOperatorType.Or => inner.Aggregate(Expression.OrElse),
-                _ => throw new NotSupportedException("Invalid logical operator")
+                LogicalOperatorType.And => innerExpressions.Aggregate(Expression.AndAlso),
+                LogicalOperatorType.Or => innerExpressions.Aggregate(Expression.OrElse),
+                _ => throw new NotSupportedException("Invalid logical operator in grouped .Any().")
             };
 
-            var lambda = Expression.Lambda(combined, itemParam);
+            var lambda = Expression.Lambda(combinedInner, elementParam);
 
+            // Protect against null collection and build the .Any() call expression
             return Expression.AndAlso(
-                Expression.NotEqual(collectionProp, Expression.Constant(null, collectionProp.Type)),
+                Expression.NotEqual(collectionProperty, Expression.Constant(null, collectionProperty.Type)),
                 Expression.Call(
                     typeof(Enumerable),
                     nameof(Enumerable.Any),
-                    [itemType],
-                    collectionProp,
+                    new[] { elementType },
+                    collectionProperty,
                     lambda
                 )
             );
         }
 
-
-        private static Expression BuildConditionExpressionForPath(Expression param, string[] path, Symbol op, string value, int index)
+        /// <summary>
+        /// Recursively builds condition expressions for nested paths, with null-checks.
+        /// </summary>
+        private static Expression BuildConditionExpressionForPath(
+            Expression param,
+            string[] path,
+            Symbol op,
+            string value,
+            int index)
         {
-            var member = Expression.PropertyOrField(param, ConvertToPascalCase(path[index]));
+            var propName = ConvertToPascalCase(path[index]);
+            var member = Expression.PropertyOrField(param, propName);
+            var memberType = member.Type;
 
-            if (index == path.Length - 1)
+            // Check if the current member is a collection (excluding string)
+            bool isCollection = memberType != typeof(string) &&
+                                typeof(System.Collections.IEnumerable).IsAssignableFrom(memberType) &&
+                                memberType.IsGenericType;
+
+            if (isCollection)
             {
-                if (op == Symbols.Between)
-                    return ExpressionUtility.Between(member, Expression.Constant(value));
+                // Handle collection by recursively building an Any() expression
+                var elementType = memberType.GetGenericArguments()[0];
+                var elementParam = Expression.Parameter(elementType, "x");
 
-                if (op == Symbols.Like || op == Symbols.LikeBoth)
-                    return ExpressionUtility.Like(member, Expression.Constant(value), op);
+                var subExpression = BuildConditionExpressionForPath(elementParam, path, op, value, index + 1);
 
-                var constant = ExpressionUtility.ParseType(member.Type, value);
-                return BuildComparison(op, member, constant);
+                // Null-check chain for intermediate properties except last one
+                Expression? nullChecks = null;
+                Expression currentExpr = elementParam;
+
+                for (int i = index + 1; i < path.Length - 1; i++)
+                {
+                    var intermediateProp = ConvertToPascalCase(path[i]);
+                    currentExpr = Expression.PropertyOrField(currentExpr, intermediateProp);
+                    var notNullCheck = Expression.NotEqual(currentExpr, Expression.Constant(null, currentExpr.Type));
+                    nullChecks = nullChecks == null ? notNullCheck : Expression.AndAlso(nullChecks, notNullCheck);
+                }
+
+                var body = nullChecks != null ? Expression.AndAlso(nullChecks, subExpression) : subExpression;
+                var lambda = Expression.Lambda(body, elementParam);
+
+                var collectionNotNull = Expression.NotEqual(member, Expression.Constant(null));
+
+                return Expression.AndAlso(
+                    collectionNotNull,
+                    Expression.Call(
+                        typeof(Enumerable),
+                        nameof(Enumerable.Any),
+                        new[] { elementType },
+                        member,
+                        lambda
+                    )
+                );
             }
 
-            return BuildConditionExpressionForPath(member, path, op, value, index + 1);
+            // Base case: last property in path
+            if (index == path.Length - 1)
+            {
+                // Add null-check for reference types excluding string and value types
+                Expression? nullCheck = null;
+                if (!memberType.IsValueType && memberType != typeof(string))
+                {
+                    nullCheck = Expression.NotEqual(member, Expression.Constant(null, memberType));
+                }
+
+                Expression comparison;
+                if (op == Symbols.Between)
+                    comparison = ExpressionUtility.Between(member, Expression.Constant(value));
+                else if (op == Symbols.Like || op == Symbols.LikeBoth)
+                    comparison = ExpressionUtility.Like(member, Expression.Constant(value), op);
+                else
+                {
+                    var constant = ExpressionUtility.ParseType(member.Type, value);
+                    comparison = BuildComparison(op, member, constant);
+                }
+
+                return nullCheck != null ? Expression.AndAlso(nullCheck, comparison) : comparison;
+            }
+
+            // Recursive case: build expression for next path element, with null check at current level
+            var nextExpr = BuildConditionExpressionForPath(member, path, op, value, index + 1);
+            var currentNullCheck = Expression.NotEqual(member, Expression.Constant(null, member.Type));
+            return Expression.AndAlso(currentNullCheck, nextExpr);
         }
 
+        /// <summary>
+        /// Builds a binary comparison expression between two expressions according to the operator.
+        /// Handles nullable conversions automatically.
+        /// </summary>
         private static Expression BuildComparison(Symbol op, Expression left, Expression right)
         {
+            // Convert nullable types if necessary for type compatibility
             if (left.Type != right.Type)
             {
                 if (Nullable.GetUnderlyingType(left.Type) == right.Type)
@@ -245,10 +336,13 @@ namespace JadeDSL.Core
                 var o when o == Symbols.LessThanOrEqual => Expression.LessThanOrEqual(left, right),
                 var o when o == Symbols.Like => ExpressionUtility.Like(left, right, op),
                 var o when o == Symbols.Between => ExpressionUtility.Between(left, right),
-                _ => throw new NotSupportedException($"Operator {op} not supported.")
+                _ => throw new NotSupportedException($"Operator {op} is not supported.")
             };
         }
 
+        /// <summary>
+        /// Converts a snake_case string to PascalCase.
+        /// </summary>
         private static string ConvertToPascalCase(string input)
         {
             return string.Join("", input.Split('_').Select(s => char.ToUpperInvariant(s[0]) + s.Substring(1)));

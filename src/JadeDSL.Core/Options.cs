@@ -10,6 +10,8 @@ namespace JadeDSL.Core
 
         public int MaxNodeCount { get; set; } = 10;
 
+        public int MaxDepth { get; set; } = 3;
+
         /// <summary>
         /// Allowed fields for filtering; duplicates are avoided
         /// </summary>
