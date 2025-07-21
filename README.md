@@ -9,20 +9,19 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Last Commit](https://img.shields.io/github/last-commit/srburton/JadeDSL)
 
-**JadeDSL** is a lightweight, expressive Domain Specific Language (DSL) parser and evaluator for building complex LINQ-compatible filters in C#.
+**JadeDSL** is a lightweight parser and evaluator for building complex LINQ-compatible filters in C#.
 
 ---
 
 ## ✨ Features
 
-- Parse DSL filters like `(name:"John"&age>30)`
-- Supports logical operators: AND (`&`) and OR (`|`)
-- Supports comparison operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `:`, `%`, `~`
-- Nested expressions and grouping
-- Alias resolution (e.g. `@aliasName` → `name`)
-- Expression validation and sanitization
-- Expression-to-LINQ (`Expression<Func<T, bool>>`) builder
-- Safe from OWASP Top 10 injection attacks
+* Parse filters like `(name:"John" & age>30)`
+* Logical operators: AND (`&`), OR (`|`) and grouping with parentheses `()`
+* Comparison operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `:`, `%`, `%%`, `~`
+* Supports deeply nested expressions and collections
+* Alias resolution for reusable filters (e.g. `@aliasName` → `name`)
+* Converts to LINQ-compatible `Expression<Func<T, bool>>`
+* Safe against common injection attacks (OWASP Top 10)
 
 ---
 
@@ -42,105 +41,115 @@ dotnet add package JadeDSL --version x.y.z
 
 ---
 
+## ⚡ Quick Example with `curl`
+
+```bash
+curl "http://localhost:5000/api/products?filter=(name:%Laptop|price~1000..3000)&sort=price"
+```
+
+Back-end:
+
+```csharp
+var dsl = new FilterBuilder()
+    .WithExpression("(name:%Laptop|price~1000..3000)")
+    .ConfigureOptions(opts =>
+    {
+        opts.AddAllowedFields("name", "price");
+    })
+    .Build();
+
+var results = dbContext.Products.WhereDsl(dsl).ToList();
+```
+
+---
+
 ## 🔧 Usage
 
-### 1. Configure your DSL options
+### 1. Configure DSL options
 
 ```csharp
 var options = new Options();
-options.AddAllowedFields("name", "lastname", "age", "city", "price", "address.street", "documents.name", "documents.types.name");
-options.AddAlias("@aliasName", "name");
-options.AddAlias("@aliasAge", "age");
+options.AddAllowedFields("name", "price", "location.city", "items.tags.name");
+options.AddAlias("@productName", "name");
+options.AddAlias("@city", "location.city");
+```
+
+### 2. Parse a filter expression
+
+```csharp
+var dsl = new FilterBuilder()
+    .WithExpression("(@productName:%Phone&@city:NYC)")
+    .ConfigureOptions(o => {
+        o.AddAllowedFields("name", "location.city");
+        o.AddAlias("@productName", "name");
+        o.AddAlias("@city", "location.city");
+    })
+    .Build();
+```
+
+### 3. Apply to a query
+
+```csharp
+var results = dbContext.Users.WhereDsl(dsl).ToList();
 ```
 
 ---
 
-### 2. Create a DSL filter using the builder pattern
+## 💡 Real-World Examples
+
+### — Nested collections and alias
 
 ```csharp
 var dsl = new FilterBuilder()
-    .WithExpression("(name:\"Alice\"&@aliasAge>=30)")
+    .WithExpression("(@tagName:Featured&items.tags.name:%Promo)")
+    .ConfigureOptions(options => {
+        options.AddAllowedFields("items.tags.name");
+        options.AddAlias("@tagName", "items.tags.name");
+    })
+    .Build();
+```
+
+### — Deep nesting with multiple OR/AND groups
+
+```csharp
+var dsl = new FilterBuilder()
+    .WithExpression("((category:\"Electronics\"|category:\"Computers\")&(price~500..1500|name:%Gaming))")
     .ConfigureOptions(opts =>
     {
-        opts.AddAllowedFields("name", "age");
-        opts.AddAlias("@aliasAge", "age");
+        opts.AddAllowedFields("category", "price", "name");
     })
     .Build();
 ```
 
----
-
-### 3. Apply the filter to EF Core
-
-```csharp
-var results = dbContext.Users
-    .WhereDsl(dsl)
-    .ToList();
-```
-
----
-
-## 💡 Real-world Examples
-
-### — Filtering with a related collection
+### — Combine with custom conditions
 
 ```csharp
 var dsl = new FilterBuilder()
-    .WithExpression("(name:\"Alice\"&documents.name:\"MOU\")")
-    .ConfigureOptions(options => {
-        options.AddAllowedFields("name", "documents.name");
+    .WithExpression("(status:active&@city:Chicago)")
+    .ConfigureOptions(opts => {
+        opts.AddAllowedFields("status", "location.city");
+        opts.AddAlias("@city", "location.city");
     })
     .Build();
 
-var results = dbContext.Users
-    .Include(u => u.Documents)
-    .WhereDsl(dsl)
-    .ToList();
-```
-
-### — Filtering nested properties in a child collection
-
-```csharp
-var dsl = new FilterBuilder()
-    .WithExpression("(name:\"Alice\"&documents.types.name:%Img)")
-    .ConfigureOptions(options => {
-        options.AddAllowedFields("name", "documents.types.name");
-    })
-    .Build();
-
-var results = dbContext.Users
-    .Include(u => u.Documents)
-        .ThenInclude(d => d.Types)
-    .WhereDsl(dsl)
-    .ToList();
-```
-
-### — Combining with manual LINQ filters
-
-```csharp
-var dsl = new FilterBuilder()
-    .WithExpression("(age>=18)")
-    .ConfigureOptions(options => options.AddAllowedFields("age"))
-    .Build();
-
-var results = dbContext.Address
-    .Where(a => a.UserId == 1)
+var result = dbContext.Customers
+    .Where(c => c.JoinDate >= DateTime.UtcNow.AddYears(-1))
     .WhereDsl(dsl)
     .ToList();
 ```
 
 ---
 
-## 📊 Example Expressions
+## 📊 DSL Expression Examples
 
 ```dsl
 name:"John"
-@aliasAge>=30
+@productName:%Phone
 price~100..500
 (city:"NYC"|city:"LA")
 (name:"Alice"&lastname:"Smith")
-Name%%"Prod"        // like contains both sides (%%)
-Name%"Prod"         // like starts with (%)
+Name%%"Prod"        // contains both sides
+Name%"Prod"         // starts with
 ```
 
 ---
@@ -160,32 +169,31 @@ Name%"Prod"         // like starts with (%)
 | `%%`   | Like / Contains (both)   |
 | `~`    | Between (range)          |
 
+---
+
+## 🔐 Security
+
+JadeDSL is designed with OWASP Top 10 in mind:
+
+* Token sanitization
+* Structural validation
+* Node count limits
+* Operator allow-lists
 
 ---
 
-## ⚠️ Security
+## 📜 License
 
-JadeDSL is designed with OWASP Top 10 in mind and includes:
-
-- Token sanitization
-- Structural validation
-- Node limit enforcement
-- Operator allow-listing
-
----
-
-## 📟 License
-
-This project is licensed under the [MIT License](LICENSE).
+Licensed under the [MIT License](LICENSE).
 
 ---
 
 ## 🤝 Contributing
 
-Pull requests are welcome! For major changes, please open an issue first to discuss what you’d like to change.
+Pull requests are welcome! For major changes, open an issue first to discuss your idea.
 
 ---
 
-## 📘 Maintainer
+## 👤 Maintainer
 
-- [@srburton](https://github.com/srburton)
+* [@srburton](https://github.com/srburton)
