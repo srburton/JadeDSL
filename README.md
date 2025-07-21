@@ -44,7 +44,7 @@ dotnet add package JadeDSL --version x.y.z
 ## ⚡ Quick Example with `curl`
 
 ```bash
-curl "http://localhost:5000/api/products?filter=(name:%Laptop|price~1000..3000)&sort=price"
+curl "http://localhost:5000/api/products?filter=(name:%Laptop|price~1000..3000)"
 ```
 
 Back-end:
