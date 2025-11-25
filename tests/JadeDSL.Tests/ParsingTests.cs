@@ -173,5 +173,19 @@ namespace JadeDSL.Tests
         {
             Assert.ThrowsAny<Exception>(() => CreateBuilder(input));
         }
+
+        [Theory]
+        [InlineData("name:\"$\"")]
+        [InlineData("name:\"%\"")]
+        [InlineData("name:\"+\"")]
+        [InlineData("name:\"!\"")]
+        [InlineData("name:\"*\"")]
+        [InlineData("name:\"()\"")]
+        [InlineData("name:\"------------**&+++???;;\"")]        
+        public void Should_Allow_Special_Characters_Inside_Quoted_Value(string input)
+        {
+            var builder = CreateBuilder(input);
+            Assert.NotNull(builder);
+        }
     }
 }

@@ -20,6 +20,8 @@
         /// </summary>
         public string Value { get; set; } = string.Empty;
 
+        public string ValueRaw { get; set; } = string.Empty;
+
         /// <summary>
         /// Validates the current expression structure and values.
         /// </summary>
@@ -38,10 +40,19 @@
                     return false;
 
                 // Value must not start with a known operator (to avoid malformed inputs like ":!=abc")
-                if (string.IsNullOrWhiteSpace(Value) ||
-                    Symbols.OperatorSymbols.Any(sym => Value.StartsWith(sym.ToString()) || Value.EndsWith(sym.ToString())) ||
-                    Symbols.MiscSymbols.Any(sym => Value.StartsWith(sym.ToString()) || Value.EndsWith(sym.ToString())))
-                    return false;
+                bool isQuoted = ValueRaw.StartsWith("\"") && ValueRaw.EndsWith("\"");
+                if (!isQuoted)
+                {
+                    if (Symbols.OperatorSymbols.Any(sym => Value.StartsWith(sym.ToString()) || Value.EndsWith(sym.ToString())))
+                        return false;
+
+                    if (Symbols.MiscSymbols.Any(sym => Value.StartsWith(sym.ToString()) || Value.EndsWith(sym.ToString())))
+                        return false;
+                }
+                //if (string.IsNullOrWhiteSpace(Value) ||
+                //    Symbols.OperatorSymbols.Any(sym => Value.StartsWith(sym.ToString()) || Value.EndsWith(sym.ToString())) ||
+                //    Symbols.MiscSymbols.Any(sym => Value.StartsWith(sym.ToString()) || Value.EndsWith(sym.ToString())))
+                //    return false;
 
                 return true;
             }

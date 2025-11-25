@@ -151,15 +151,14 @@ namespace JadeDSL.Core
             }
 
             if (string.IsNullOrWhiteSpace(name))
-                throw new InvalidOperationException($"Invalid expression '{expr}'");
-
-            value = value.Trim().Trim('"');
+                throw new InvalidOperationException($"Invalid expression '{expr}'");            
 
             var nodeExpression = new NodeExpression
             {
                 Field = name,
                 Operator = op,
-                Value = value
+                Value = value.Trim('"'),
+                ValueRaw = value
             };
 
             if (!nodeExpression.IsValid)
