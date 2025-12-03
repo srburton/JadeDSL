@@ -58,6 +58,8 @@ namespace JadeDSL.Tests
             new Person { Name = "Bob", Age = 35 },
             new Person { Name = "Charlie", Age = 40, Documents = [new() { Title = "MOU" }] },
             new Person { Name = "David", Age = 32, Documents = [new() { Title = "Contract" }] },
+            new Person { Name = "Jhon, Petter", Age = 28, Documents = [new() { Title = "Contract" }] },
+            new Person { Name = "Patrick, Ross", Age = 78}
         ];
 
         private readonly Action<Options> _options = opts =>
@@ -244,6 +246,33 @@ namespace JadeDSL.Tests
             Assert.Equal(2, result.Count);
             Assert.Contains(result, p => p.Name == "Alice");
             Assert.Contains(result, p => p.Name == "David");
+        }
+
+        [Fact]
+        public void Should_Filter_By_Name_With_Coomma_In_Single_List()
+        {
+            var filter = new FilterBuilder()
+                .WithExpression("Name[]\"Jhon, Petter\"")
+                .ConfigureOptions(_options)
+                .Build();
+
+            var result = _people.AsQueryable().WhereDsl(filter).ToList();
+
+            Assert.Single(result, p => p.Name == "Jhon, Petter");
+        }
+
+        [Fact]
+        public void Should_Filter_By_Name_With_Coomma_In_List()
+        {
+            var filter = new FilterBuilder()
+                .WithExpression("Name[]\"Jhon, Petter\",\"Patrick, Ross\"")
+                .ConfigureOptions(_options)
+                .Build();
+
+            var result = _people.AsQueryable().WhereDsl(filter).ToList();
+            Assert.Equal(2, result.Count);
+            Assert.Contains(result, p => p.Name == "Jhon, Petter");
+            Assert.Contains(result, p => p.Name == "Patrick, Ross");
         }
     }
 }

@@ -1,5 +1,7 @@
 ﻿using JadeDSL.Core.Helpers;
+using System.Collections;
 using System.Linq.Expressions;
+using System.Text;
 
 namespace JadeDSL.Core.Extensions
 {
@@ -59,24 +61,55 @@ namespace JadeDSL.Core.Extensions
             if (raw.StartsWith("(") && raw.EndsWith(")"))
                 raw = raw[1..^1];
 
-            // Separa os valores
-            var parts = raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (parts.Length == 0)
+            // Lista para armazenar os valores
+            var parts = new List<string>();
+            var current = new StringBuilder();
+            bool inQuotes = false;
+
+            for (int i = 0; i < raw.Length; i++)
+            {
+                char c = raw[i];
+
+                if (c == '"')
+                {
+                    inQuotes = !inQuotes; // alterna estado de aspas
+                    continue; // remove as aspas
+                }
+
+                if (c == ',' && !inQuotes)
+                {
+                    // separa os valores fora de aspas
+                    var value = current.ToString().Trim();
+                    if (!string.IsNullOrEmpty(value))
+                        parts.Add(value);
+                    current.Clear();
+                }
+                else
+                {
+                    current.Append(c);
+                }
+            }
+
+            // último valor
+            var last = current.ToString().Trim();
+            if (!string.IsNullOrEmpty(last))
+                parts.Add(last);
+
+            if (parts.Count == 0)
                 throw new ArgumentException("IN list cannot be empty.");
 
             // Tipo base do membro
             var leftBaseType = Nullable.GetUnderlyingType(left.Type) ?? left.Type;
 
-            // Cria array fortemente tipado
-            var typedValues = Array.CreateInstance(leftBaseType, parts.Length);
-            for (int i = 0; i < parts.Length; i++)
+            // Cria lista fortemente tipada
+            var typedList = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(leftBaseType))!;
+            foreach (var part in parts)
             {
-                var part = parts[i].Trim().Trim('"');
-                typedValues.SetValue(Convert.ChangeType(part, leftBaseType), i);
+                typedList.Add(Convert.ChangeType(part, leftBaseType));
             }
 
-            // ConstantExpression do array
-            var listExpr = Expression.Constant(typedValues);
+            // ConstantExpression da lista
+            var listExpr = Expression.Constant(typedList);
 
             // Converte membro se for Nullable<T>
             Expression leftConverted = left.Type != leftBaseType ? Expression.Convert(left, leftBaseType) : left;
@@ -84,7 +117,8 @@ namespace JadeDSL.Core.Extensions
             // Chama Enumerable.Contains<T>(IEnumerable<T>, T)
             var containsMethod = typeof(Enumerable)
                 .GetMethods()
-                .First(m => m.Name == nameof(Enumerable.Contains) && m.GetParameters().Length == 2)
+                .First(m => m.Name == nameof(Enumerable.Contains)
+                            && m.GetParameters().Length == 2)
                 .MakeGenericMethod(leftBaseType);
 
             return Expression.Call(

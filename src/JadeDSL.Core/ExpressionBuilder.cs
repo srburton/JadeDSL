@@ -111,7 +111,7 @@ namespace JadeDSL.Core
                 if (expr.Operator == Symbols.Like || expr.Operator == Symbols.LikeBoth)
                     return ExpressionUtility.Like(member, Expression.Constant(expr.Value), expr.Operator);
                 if (expr.Operator == Symbols.In)
-                    return ExpressionUtility.In(member, Expression.Constant(expr.Value));
+                    return ExpressionUtility.In(member, Expression.Constant(expr.ValueRaw));
                 var constant = ExpressionUtility.ParseType(member.Type, expr.Value);
                 return BuildComparison(expr.Operator, member, constant);
             }
