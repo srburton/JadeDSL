@@ -9,23 +9,36 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Last Commit](https://img.shields.io/github/last-commit/srburton/JadeDSL)
 
-**JadeDSL** is a lightweight parser and evaluator for building complex LINQ-compatible filters in C#.
+**JadeDSL** is a lightweight, expressive Domain Specific Language (DSL) parser and evaluator for building complex LINQ-compatible filters in C#.  
+
+It allows you to write intuitive filter expressions and apply them directly to `IQueryable<T>` collections, including EF Core queries.
 
 ---
 
-## ✨ Features
+### URL Query Filtering
 
-* Parse filters like `(name:"John" & age>30)`
-* Logical operators: AND (`&`), OR (`|`) and grouping with parentheses `()`
-* Comparison operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `:`, `%`, `%%`, `~`
-* Supports deeply nested expressions and collections
-* Alias resolution for reusable filters (e.g. `@aliasName` → `name`)
-* Converts to LINQ-compatible `Expression<Func<T, bool>>`
-* Safe against common injection attacks (OWASP Top 10)
+You can use JadeDSL to translate URL query parameters into powerful filters. For example:
+
+```curl
+
+http://example.com?search=(name:"Alice"&age>=30|documents.title:"MOU")|(status:"active"&createdDate~2023-01-01..2023-12-31)
+
+```
+
+## Features
+
+- Parse DSL filters like `(name:"John"&age>30)`  
+- Supports logical operators: AND (`&`) and OR (`|`)  
+- Supports comparison operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `:`, `*`, `**`, `~`, `[]`  
+- Nested expressions and grouping with parentheses  
+- Alias resolution (e.g. `@alias` → `name`)  
+- Expression validation and sanitization  
+- Expression-to-LINQ conversion (`Expression<Func<T, bool>>`)  
+- Safe from common injection attacks (OWASP Top 10)
 
 ---
 
-## 📦 Installation
+## Installation
 
 Install via NuGet:
 
@@ -41,159 +54,148 @@ dotnet add package JadeDSL --version x.y.z
 
 ---
 
-## ⚡ Quick Example with `curl`
+## Usage
 
-```bash
-curl "http://localhost:5000/api/products?filter=(name:%Laptop|price~1000..3000)"
-```
-
-Back-end:
+### 1. Create a DSL filter using the builder pattern
 
 ```csharp
 var dsl = new FilterBuilder()
-    .WithExpression("(name:%Laptop|price~1000..3000)")
+    .WithExpression("(name:\"Alice\"&@aliasAge>=30)")
     .ConfigureOptions(opts =>
     {
-        opts.AddAllowedFields("name", "price");
-    })
-    .Build();
-
-var results = dbContext.Products.WhereDsl(dsl).ToList();
-```
-
----
-
-## 🔧 Usage
-
-### 1. Configure DSL options
-
-```csharp
-var options = new Options();
-options.AddAllowedFields("name", "price", "location.city", "items.tags.name");
-options.AddAlias("@productName", "name");
-options.AddAlias("@city", "location.city");
-```
-
-### 2. Parse a filter expression
-
-```csharp
-var dsl = new FilterBuilder()
-    .WithExpression("(@productName:%Phone&@city:NYC)")
-    .ConfigureOptions(o => {
-        o.AddAllowedFields("name", "location.city");
-        o.AddAlias("@productName", "name");
-        o.AddAlias("@city", "location.city");
+        opts.AddAllowedFields("name", "age");
+        opts.AddAlias("@aliasAge", "age");
     })
     .Build();
 ```
 
-### 3. Apply to a query
+### 2. Apply the filter to EF Core
 
 ```csharp
-var results = dbContext.Users.WhereDsl(dsl).ToList();
-```
-
----
-
-## 💡 Real-World Examples
-
-### — Nested collections and alias
-
-```csharp
-var dsl = new FilterBuilder()
-    .WithExpression("(@tagName:Featured&items.tags.name:%Promo)")
-    .ConfigureOptions(options => {
-        options.AddAllowedFields("items.tags.name");
-        options.AddAlias("@tagName", "items.tags.name");
-    })
-    .Build();
-```
-
-### — Deep nesting with multiple OR/AND groups
-
-```csharp
-var dsl = new FilterBuilder()
-    .WithExpression("((category:\"Electronics\"|category:\"Computers\")&(price~500..1500|name:%Gaming))")
-    .ConfigureOptions(opts =>
-    {
-        opts.AddAllowedFields("category", "price", "name");
-    })
-    .Build();
-```
-
-### — Combine with custom conditions
-
-```csharp
-var dsl = new FilterBuilder()
-    .WithExpression("(status:active&@city:Chicago)")
-    .ConfigureOptions(opts => {
-        opts.AddAllowedFields("status", "location.city");
-        opts.AddAlias("@city", "location.city");
-    })
-    .Build();
-
-var result = dbContext.Customers
-    .Where(c => c.JoinDate >= DateTime.UtcNow.AddYears(-1))
+var results = dbContext.Users
     .WhereDsl(dsl)
     .ToList();
 ```
 
 ---
 
-## 📊 DSL Expression Examples
+## Real-world Examples
 
-```dsl
-name:"John"
-@productName:%Phone
-price~100..500
-(city:"NYC"|city:"LA")
-(name:"Alice"&lastname:"Smith")
-Name%%"Prod"        // contains both sides
-Name%"Prod"         // starts with
+### Filtering with a related collection
+
+```csharp
+var dsl = new FilterBuilder()
+    .WithExpression("(name:\"Alice\"&documents.name:\"MOU\")")
+    .ConfigureOptions(opts => opts.AddAllowedFields("name", "documents.name"))
+    .Build();
+
+var results = dbContext.Users
+    .Include(u => u.Documents)
+    .WhereDsl(dsl)
+    .ToList();
+```
+
+### Filtering nested properties in a child collection
+
+```csharp
+var dsl = new FilterBuilder()
+    .WithExpression("(name:\"Alice\"&documents.types.name:png)")
+    .ConfigureOptions(opts => opts.AddAllowedFields("name", "documents.types.name"))
+    .Build();
+
+var results = dbContext.Users
+    .Include(u => u.Documents)
+        .ThenInclude(d => d.Types)
+    .WhereDsl(dsl)
+    .ToList();
+```
+
+### Combining DSL with manual LINQ filters
+
+```csharp
+var dsl = new FilterBuilder()
+    .WithExpression("(age>=18)")
+    .ConfigureOptions(opts => opts.AddAllowedFields("age"))
+    .Build();
+
+var results = dbContext.Address
+    .Where(a => a.UserId == 1)
+    .WhereDsl(dsl)
+    .ToList();
 ```
 
 ---
 
-## ✅ Supported Operators
+## Example Expressions
 
-| Symbol | Description              |
-| ------ | ------------------------ |
-| `=`    | Equal                    |
-| `!=`   | Not Equal                |
-| `>`    | Greater Than             |
-| `>=`   | Greater Than or Equal    |
-| `<`    | Less Than                |
-| `<=`   | Less Than or Equal       |
-| `:`    | Exact Text Match         |
-| `%`    | Like / StartsWith (left) |
-| `%%`   | Like / Contains (both)   |
-| `~`    | Between (range)          |
+```dsl
+name:"John"
+@aliasAge>=30
+price~100..500
+(city:"NYC"|city:"LA")
+(name:"Alice"&lastname:"Smith")
+Name**"Pro"          # Contains "Pro"
+Name*"Prod"          # Starts with "Prod"
+Name[]"Prod","Dev","Test"  # IN list
+```
 
 ---
 
-## 🔐 Security
+## Supported Operators
 
-JadeDSL is designed with OWASP Top 10 in mind:
-
-* Token sanitization
-* Structural validation
-* Node count limits
-* Operator allow-lists
-
----
-
-## 📜 License
-
-Licensed under the [MIT License](LICENSE).
-
----
-
-## 🤝 Contributing
-
-Pull requests are welcome! For major changes, open an issue first to discuss your idea.
+| Symbol | Description                     |
+| ------ | ------------------------------- |
+| `=`    | Equal                           |
+| `!=`   | Not Equal                       |
+| `>`    | Greater Than                    |
+| `>=`   | Greater Than or Equal           |
+| `<`    | Less Than                       |
+| `<=`   | Less Than or Equal              |
+| `:`    | Exact Text Match                |
+| `*`    | Like / StartsWith               |
+| `**`   | Like / Contains (both sides)    |
+| `~`    | Between (range)                 |
+| `[]`   | IN (list of values)             |
 
 ---
 
-## 👤 Maintainer
+## Security
+
+JadeDSL is designed with security in mind and protects against common injection attacks:
+
+- Token sanitization  
+- Structural validation  
+- Node limit enforcement  
+- Operator allow-listing  
+
+---
+
+## License
+
+This project is licensed under the MIT License.
+
+---
+
+## Download
+
+You can download the latest release from the GitHub repository:
+
+[Download JadeDSL.zip](https://github.com/srburton/JadeDSL/releases/latest/download/JadeDSL.zip)
+
+Or clone the repository:
+
+```bash
+git clone https://github.com/srburton/JadeDSL.git
+```
+
+---
+
+## Contributing
+
+Contributions are welcome! Please open an issue first to discuss major changes. Pull requests should include tests and follow existing coding style.
+
+---
+
+## Maintainer
 
 * [@srburton](https://github.com/srburton)
