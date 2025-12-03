@@ -215,5 +215,35 @@ namespace JadeDSL.Tests
             Assert.All(result, i =>
                 Assert.True(i.Attributes?.Any(a => a.ValueInt == 10 || a.ValueInt == 11)));
         }
+
+        [Fact]
+        public void Should_Filter_By_Name_In_List()
+        {
+            var filter = new FilterBuilder()
+                .WithExpression("Name[]\"Alice\",\"Bob\"")
+                .ConfigureOptions(_options)
+                .Build();
+
+            var result = _people.AsQueryable().WhereDsl(filter).ToList();
+
+            Assert.Equal(2, result.Count);
+            Assert.Contains(result, p => p.Name == "Alice");
+            Assert.Contains(result, p => p.Name == "Bob");
+        }
+
+        [Fact]
+        public void Should_Filter_By_Age_In_List()
+        {
+            var filter = new FilterBuilder()
+                .WithExpression("Age[]25,32,41")
+                .ConfigureOptions(_options)
+                .Build();
+
+            var result = _people.AsQueryable().WhereDsl(filter).ToList();
+
+            Assert.Equal(2, result.Count);
+            Assert.Contains(result, p => p.Name == "Alice");
+            Assert.Contains(result, p => p.Name == "David");
+        }
     }
 }

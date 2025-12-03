@@ -187,5 +187,46 @@ namespace JadeDSL.Tests
             var builder = CreateBuilder(input);
             Assert.NotNull(builder);
         }
+
+        [Theory]
+        [InlineData("name[]john,maria,pedro")]
+        [InlineData("name[](john,maria,pedro)")]
+        [InlineData("name[]\"john\",\"maria\",\"pedro\"")]
+        [InlineData("name[]\"John Doe\",\"Maria Silva\"")]
+        [InlineData("name[]\"%\"")]
+        [InlineData("name[]\"*\"")]
+        [InlineData("name[]\"------------**&+++???;;\"")]
+        [InlineData("name[]\"john, the great\"")]  // vírgula dentro de aspas
+        [InlineData("name[]\"()\",\"[]\",\"{}\"")]
+        [InlineData("lastname[]silva,souza,lima")]
+        [InlineData("lastname[](silva,souza,lima)")]
+        [InlineData("lastname[]\"Silva\",\"Souza\",\"Lima\"")]
+        [InlineData("lastname[]\"A\",\"B\",\"C\"")]
+        [InlineData("age[]1,2,3")]       
+        [InlineData("age[]10")]
+        [InlineData("age[]\"1\",\"2\",\"3\",\"4\"")]
+        [InlineData("age[]  1 ,  20 ,300")]
+        [InlineData("age[]1,1,1")] // repetidos
+        [InlineData("city[]NY,LA,Miami")]
+        [InlineData("city[]\"New York\",\"Los Angeles\",\"Miami\"")]
+        [InlineData("city[]\"São Paulo\",\"Rio de Janeiro\"")]
+        [InlineData("price[]10,20,30")]
+        [InlineData("price[](100.5,200.75,300.25)")]
+        [InlineData("price[]0,999,1500")]
+        [InlineData("address.street[]main,first,second")]
+        [InlineData("address.street[]\"Main St\",\"First Ave\",\"Second Blvd\"")]
+        [InlineData("address.street[]\"R. das Flores\",\"Av. Central\"")]
+        [InlineData("@aliasName[]john,pedro")]
+        [InlineData("@aliasName[]\"john\",\"maria\"")]
+        [InlineData("@aliasName[]\"%\"")]
+        [InlineData("@aliasAge[](1,2,3)")]
+        [InlineData("@aliasAge[](5,10,15)")]
+        [InlineData("@aliasAge[]100")]
+        [InlineData("@aliasAge[]1,1,1")]
+        public void Should_Parse_In_Operator(string input)
+        {
+            var builder = CreateBuilder(input);
+            Assert.NotNull(builder);
+        }
     }
 }

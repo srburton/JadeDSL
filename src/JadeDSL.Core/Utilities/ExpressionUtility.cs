@@ -48,6 +48,53 @@ namespace JadeDSL.Core.Extensions
             };
         }
 
+        public static Expression In(Expression left, Expression right)
+        {
+            if (right is not ConstantExpression constExpr || constExpr.Value is not string raw)
+                throw new NotSupportedException("IN expression must have a string constant value.");
+
+            raw = raw.Trim();
+
+            // Remove parênteses se existirem
+            if (raw.StartsWith("(") && raw.EndsWith(")"))
+                raw = raw[1..^1];
+
+            // Separa os valores
+            var parts = raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length == 0)
+                throw new ArgumentException("IN list cannot be empty.");
+
+            // Tipo base do membro
+            var leftBaseType = Nullable.GetUnderlyingType(left.Type) ?? left.Type;
+
+            // Cria array fortemente tipado
+            var typedValues = Array.CreateInstance(leftBaseType, parts.Length);
+            for (int i = 0; i < parts.Length; i++)
+            {
+                var part = parts[i].Trim().Trim('"');
+                typedValues.SetValue(Convert.ChangeType(part, leftBaseType), i);
+            }
+
+            // ConstantExpression do array
+            var listExpr = Expression.Constant(typedValues);
+
+            // Converte membro se for Nullable<T>
+            Expression leftConverted = left.Type != leftBaseType ? Expression.Convert(left, leftBaseType) : left;
+
+            // Chama Enumerable.Contains<T>(IEnumerable<T>, T)
+            var containsMethod = typeof(Enumerable)
+                .GetMethods()
+                .First(m => m.Name == nameof(Enumerable.Contains) && m.GetParameters().Length == 2)
+                .MakeGenericMethod(leftBaseType);
+
+            return Expression.Call(
+                null,
+                containsMethod,
+                listExpr,
+                leftConverted
+            );
+        }
+
 
         public static Expression ParseType(Type type, string raw)
         {

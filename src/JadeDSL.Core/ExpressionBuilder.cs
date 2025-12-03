@@ -110,6 +110,8 @@ namespace JadeDSL.Core
                     return ExpressionUtility.Between(member, Expression.Constant(expr.Value));
                 if (expr.Operator == Symbols.Like || expr.Operator == Symbols.LikeBoth)
                     return ExpressionUtility.Like(member, Expression.Constant(expr.Value), expr.Operator);
+                if (expr.Operator == Symbols.In)
+                    return ExpressionUtility.In(member, Expression.Constant(expr.Value));
                 var constant = ExpressionUtility.ParseType(member.Type, expr.Value);
                 return BuildComparison(expr.Operator, member, constant);
             }
@@ -272,6 +274,7 @@ namespace JadeDSL.Core
                 var o when o == Symbols.LessThanOrEqual => Expression.LessThanOrEqual(left, right),
                 var o when o == Symbols.Like => ExpressionUtility.Like(left, right, op),
                 var o when o == Symbols.Between => ExpressionUtility.Between(left, right),
+                var o when o == Symbols.In => ExpressionUtility.In(left, right),
                 _ => throw new NotSupportedException($"Operator {op} is not supported.")
             };
         }

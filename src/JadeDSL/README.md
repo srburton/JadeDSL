@@ -1,54 +1,51 @@
 # JadeDSL
 
-**JadeDSL** is a lightweight, expressive Domain Specific Language (DSL) parser and evaluator for building complex LINQ-compatible filters in C#.
+**JadeDSL** is a lightweight, expressive Domain Specific Language (DSL) parser and evaluator for building complex LINQ-compatible filters in C#.  
+
+It allows you to write intuitive filter expressions and apply them directly to `IQueryable<T>` collections, including EF Core queries.
 
 ---
 
-## ✨ Features
+### URL Query Filtering
 
-- Parse DSL filters like `(name:"John"&age>30)`
-- Supports logical operators: AND (`&`) and OR (`|`)
-- Supports comparison operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `:`, `%`, `~`
-- Nested expressions and grouping
-- Alias resolution (e.g. `@aliasName` → `name`)
-- Expression validation and sanitization
-- Expression-to-LINQ (`Expression<Func<T, bool>>`) builder
-- Safe from OWASP Top 10 injection attacks
+You can use JadeDSL to translate URL query parameters into powerful filters. For example:
+
+```curl
+http://example.com?search=(name:"Alice"&age>=30|documents.title:"MOU")|(status:"active"&createdDate~2023-01-01..2023-12-31)
+```
+
+## Features
+
+- Parse DSL filters like `(name:"John"&age>30)`  
+- Supports logical operators: AND (`&`) and OR (`|`)  
+- Supports comparison operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `:`, `*`, `**`, `~`, `[]`  
+- Nested expressions and grouping with parentheses  
+- Alias resolution (e.g. `@alias` → `name`)  
+- Expression validation and sanitization  
+- Expression-to-LINQ conversion (`Expression<Func<T, bool>>`)  
+- Safe from common injection attacks (OWASP Top 10)
 
 ---
 
-## 📦 Installation
+## Installation
 
 Install via NuGet:
 
-```
-
+```bash
 dotnet add package JadeDSL
-
 ```
 
 Or specify a version:
 
-```
-
+```bash
 dotnet add package JadeDSL --version x.y.z
-
-````
+```
 
 ---
 
-## 🔧 Usage
+## Usage
 
-### 1. Configure your DSL options
-
-```csharp
-var options = new Options();
-options.AddAllowedFields("name", "lastname", "age", "city", "price", "address.street", "documents.name", "documents.types.name");
-options.AddAlias("@aliasName", "name");
-options.AddAlias("@aliasAge", "age");
-````
-
-### 2. Create a DSL filter using the builder pattern
+### 1. Create a DSL filter using the builder pattern
 
 ```csharp
 var dsl = new FilterBuilder()
@@ -61,7 +58,7 @@ var dsl = new FilterBuilder()
     .Build();
 ```
 
-### 3. Apply the filter to EF Core
+### 2. Apply the filter to EF Core
 
 ```csharp
 var results = dbContext.Users
@@ -71,16 +68,14 @@ var results = dbContext.Users
 
 ---
 
-## 💡 Real-world Examples
+## Real-world Examples
 
-### — Filtering with a related collection
+### Filtering with a related collection
 
 ```csharp
 var dsl = new FilterBuilder()
     .WithExpression("(name:\"Alice\"&documents.name:\"MOU\")")
-    .ConfigureOptions(options => {
-        options.AddAllowedFields("name", "documents.name");
-    })
+    .ConfigureOptions(opts => opts.AddAllowedFields("name", "documents.name"))
     .Build();
 
 var results = dbContext.Users
@@ -89,14 +84,12 @@ var results = dbContext.Users
     .ToList();
 ```
 
-### — Filtering nested properties in a child collection
+### Filtering nested properties in a child collection
 
 ```csharp
 var dsl = new FilterBuilder()
-    .WithExpression("(name:\"Alice\"&documents.types.name:%Img)")
-    .ConfigureOptions(options => {
-        options.AddAllowedFields("name", "documents.types.name");
-    })
+    .WithExpression("(name:\"Alice\"&documents.types.name:png)")
+    .ConfigureOptions(opts => opts.AddAllowedFields("name", "documents.types.name"))
     .Build();
 
 var results = dbContext.Users
@@ -106,12 +99,12 @@ var results = dbContext.Users
     .ToList();
 ```
 
-### — Combining with manual LINQ filters
+### Combining DSL with manual LINQ filters
 
 ```csharp
 var dsl = new FilterBuilder()
     .WithExpression("(age>=18)")
-    .ConfigureOptions(options => options.AddAllowedFields("age"))
+    .ConfigureOptions(opts => opts.AddAllowedFields("age"))
     .Build();
 
 var results = dbContext.Address
@@ -122,7 +115,7 @@ var results = dbContext.Address
 
 ---
 
-## 📊 Example Expressions
+## Example Expressions
 
 ```dsl
 name:"John"
@@ -130,52 +123,68 @@ name:"John"
 price~100..500
 (city:"NYC"|city:"LA")
 (name:"Alice"&lastname:"Smith")
-Name%%"Prod"
-Name%"Prod"
+Name**"Pro"          # Contains "Pro"
+Name*"Prod"          # Starts with "Prod"
+Name[]"Prod","Dev","Test"  # IN list
 ```
 
 ---
 
-## ✅ Supported Operators
+## Supported Operators
 
-| Symbol | Description              |
-| ------ | ------------------------ |
-| `=`    | Equal                    |
-| `!=`   | Not Equal                |
-| `>`    | Greater Than             |
-| `>=`   | Greater Than or Equal    |
-| `<`    | Less Than                |
-| `<=`   | Less Than or Equal       |
-| `:`    | Exact Text Match         |
-| `%`    | Like / StartsWith (left) |
-| `%%`   | Like / Contains (both)   |
-| `~`    | Between (range)          |
-
----
-
-## ⚠️ Security
-
-JadeDSL is designed with OWASP Top 10 in mind and includes:
-
-* Token sanitization
-* Structural validation
-* Node limit enforcement
-* Operator allow-listing
+| Symbol | Description                     |
+| ------ | ------------------------------- |
+| `=`    | Equal                           |
+| `!=`   | Not Equal                       |
+| `>`    | Greater Than                    |
+| `>=`   | Greater Than or Equal           |
+| `<`    | Less Than                       |
+| `<=`   | Less Than or Equal              |
+| `:`    | Exact Text Match                |
+| `*`    | Like / StartsWith               |
+| `**`   | Like / Contains (both sides)    |
+| `~`    | Between (range)                 |
+| `[]`   | IN (list of values)             |
 
 ---
 
-## 📟 License
+## Security
+
+JadeDSL is designed with security in mind and protects against common injection attacks:
+
+- Token sanitization  
+- Structural validation  
+- Node limit enforcement  
+- Operator allow-listing  
+
+---
+
+## License
 
 This project is licensed under the MIT License.
 
 ---
 
-## 🤝 Contributing
+## Download
 
-Pull requests are welcome! For major changes, please open an issue first to discuss what you’d like to change.
+You can download the latest release from the GitHub repository:
+
+[Download JadeDSL.zip](https://github.com/srburton/JadeDSL/releases/latest/download/JadeDSL.zip)
+
+Or clone the repository:
+
+```bash
+git clone https://github.com/srburton/JadeDSL.git
+```
 
 ---
 
-## 📘 Maintainer
+## Contributing
+
+Contributions are welcome! Please open an issue first to discuss major changes. Pull requests should include tests and follow existing coding style.
+
+---
+
+## Maintainer
 
 * [@srburton](https://github.com/srburton)

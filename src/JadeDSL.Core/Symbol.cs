@@ -14,6 +14,7 @@ namespace JadeDSL.Core
         public static readonly Symbol Like = "%";
         public static readonly Symbol LikeBoth = "%%";
         public static readonly Symbol Between = "~";
+        public static readonly Symbol In = "[]";
 
         public static readonly Symbol Range = "..";
         public static readonly Symbol DoubleQuote = "\"";
@@ -33,7 +34,8 @@ namespace JadeDSL.Core
            "]",
            "[",
            ";",
-           "!"           
+           "!",
+           In
         ];
 
         public static readonly Symbol[] OperatorSymbols = [
@@ -46,7 +48,8 @@ namespace JadeDSL.Core
            Colon,
            Like,
            LikeBoth,
-           Between
+           Between,
+           In
         ];
     }
 

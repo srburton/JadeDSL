@@ -33,7 +33,8 @@ namespace JadeDSL.Core
             Symbols.Colon,
             Symbols.Like,
             Symbols.LikeBoth,
-            Symbols.Between
+            Symbols.Between,
+            Symbols.In
         };
 
         /// <summary>
